@@ -35,4 +35,9 @@ public class UserController {
     public ResponseEntity<?> createUser(@RequestBody User user) {
         return ResponseEntity.ok(userService.save(user));
     }
+
+    @RequestMapping(method = RequestMethod.POST, value = "/{id}")
+    public ResponseEntity<?> createUser2(@RequestBody User user) {
+        return ResponseEntity.ok(userService.save(user));
+    }
 } 

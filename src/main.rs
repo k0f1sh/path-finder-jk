@@ -13,12 +13,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Javaファイルをパースする
-    ParseJava {
-        /// パースするファイルパス
-        #[arg(default_value = "samples/UserController.java")]
-        file_path: String,
-    },
     /// RequestMappingアノテーションがついているクラスを抽出する
     ExtractRequestMapping {
         /// パースするファイルパス
@@ -55,9 +49,6 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::ParseJava { file_path }) => {
-            parse_java_file(&file_path)?;
-        }
         Some(Commands::ExtractRequestMapping { file_path }) => {
             extract_request_mapping(&file_path)?;
         }
@@ -75,11 +66,6 @@ fn main() -> Result<()> {
 }
 
 fn scan_directory(dir_path: &str) -> Result<()> {
-    println!(
-        "{}ディレクトリ内のJavaファイルをスキャンします...",
-        dir_path.blue()
-    );
-
     let entries = fs::read_dir(dir_path)
         .with_context(|| format!("ディレクトリの読み込みに失敗しました: {}", dir_path))?;
 
@@ -92,16 +78,16 @@ fn scan_directory(dir_path: &str) -> Result<()> {
 
         if path.is_file() && path.extension().map_or(false, |ext| ext == "java") {
             let file_path = path.to_string_lossy().to_string();
-            println!("\n{}: {}", "ファイル".bold(), file_path);
+            //println!("\n{}: {}", "ファイル".bold(), file_path);
 
             if has_request_mapping(&file_path)? {
                 found_controllers = true;
                 let endpoints = extract_request_mapping_with_endpoints(&file_path)?;
                 all_endpoints.extend(endpoints);
             } else {
-                println!(
-                    "  RequestMappingアノテーションがついているクラスは見つかりませんでした。"
-                );
+                //println!(
+                //    "  RequestMappingアノテーションがついているクラスは見つかりませんでした。"
+                //);
             }
         }
     }
@@ -117,8 +103,6 @@ fn scan_directory(dir_path: &str) -> Result<()> {
 }
 
 fn print_endpoints_summary(endpoints: &[Endpoint]) {
-    println!("\n{}", "=== エンドポイント概要 ===".bold());
-
     for endpoint in endpoints {
         let http_method = match endpoint.http_method.as_str() {
             "GetMapping" => "GET".green(),
@@ -177,13 +161,6 @@ fn has_request_mapping(file_path: &str) -> Result<bool> {
                     name: (identifier) @annotation_name
                     (#match? @annotation_name "RequestMapping")))
             name: (identifier) @class_name) @class
-        
-        (class_declaration
-            (modifiers
-                (marker_annotation
-                    name: (identifier) @annotation_name
-                    (#match? @annotation_name "RequestMapping")))
-            name: (identifier) @class_name) @class
     "#;
 
     let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
@@ -194,41 +171,12 @@ fn has_request_mapping(file_path: &str) -> Result<bool> {
     Ok(matches.count() > 0)
 }
 
-fn parse_java_file(file_path: &str) -> Result<()> {
-    println!("{}ファイルをパースします...", file_path.blue());
-
-    // setup parser
-    let mut parser = TreeSitterParser::new();
-
-    parser
-        .set_language(tree_sitter_java::language())
-        .expect("Error loading Java parser");
-
-    // parse file
-    let source_code = fs::read_to_string(file_path)
-        .with_context(|| format!("ファイルの読み込みに失敗しました: {}", file_path))?;
-    let tree = parser
-        .parse(&source_code, None)
-        .expect("パースに失敗しました");
-
-    // analyze tree
-    let root_node = tree.root_node();
-    println!("\n{}:\n{}", "構文ツリー".green(), root_node.to_sexp());
-
-    Ok(())
-}
-
 fn extract_request_mapping(file_path: &str) -> Result<()> {
     let _endpoints = extract_request_mapping_with_endpoints(file_path)?;
     Ok(())
 }
 
 fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<Endpoint>> {
-    println!(
-        "{}からRequestMappingアノテーションがついているクラスを抽出します...",
-        file_path.blue()
-    );
-
     // setup parser
     let mut parser = TreeSitterParser::new();
     parser
@@ -247,13 +195,6 @@ fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<Endpoin
         (class_declaration
             (modifiers
                 (annotation
-                    name: (identifier) @annotation_name
-                    (#match? @annotation_name "RequestMapping")))
-            name: (identifier) @class_name) @class
-        
-        (class_declaration
-            (modifiers
-                (marker_annotation
                     name: (identifier) @annotation_name
                     (#match? @annotation_name "RequestMapping")))
             name: (identifier) @class_name) @class
@@ -277,9 +218,9 @@ fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<Endpoin
 
             if capture_name == "class_name" {
                 class_name = node_text;
-                println!("\n{}: {}", "クラス名".green(), node_text);
+                //println!("\n{}: {}", "クラス名".green(), node_text);
             } else if capture_name == "annotation_name" {
-                println!("{}: {}", "アノテーション".yellow(), node_text);
+                //println!("{}: {}", "アノテーション".yellow(), node_text);
             }
         }
 
@@ -287,10 +228,6 @@ fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<Endpoin
         for capture in m.captures {
             if &query.capture_names()[capture.index as usize] == "class" {
                 let class_node = capture.node;
-                let start_line = class_node.start_position().row + 1;
-                let end_line = class_node.end_position().row + 1;
-                println!("{}: {}:{}", "行番号".cyan(), start_line, end_line);
-
                 // Extract the path from the annotation if available
                 let base_path = extract_request_mapping_path(&source_code, class_node);
 
@@ -341,7 +278,6 @@ fn extract_request_mapping_path(
             let capture_name = &query.capture_names()[capture.index as usize];
             if capture_name == "path" {
                 let path_text = &source_code[capture.node.byte_range()];
-                println!("{}: {}", "エンドポイントパス".magenta(), path_text);
                 return Some(path_text.to_string());
             }
         }
@@ -362,16 +298,7 @@ fn extract_method_mappings_with_endpoints(
             (modifiers
                 (marker_annotation
                     name: (identifier) @mapping_type
-                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping")))
-            name: (identifier) @method_name) @method
-            
-        (method_declaration
-            (modifiers
-                (annotation
-                    name: (identifier) @mapping_type
-                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping")
-                    arguments: (annotation_argument_list
-                        (string_literal) @path)))
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping")))
             name: (identifier) @method_name) @method
     "#;
 
@@ -380,12 +307,10 @@ fn extract_method_mappings_with_endpoints(
     let mut query_cursor = QueryCursor::new();
     let matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
 
-    println!("\n{}", "メソッドレベルのマッピング:".bold());
-    let mut found = false;
+    //println!("\n{}", "メソッドレベルのマッピング:".bold());
     let mut endpoints = Vec::new();
 
     for m in matches {
-        found = true;
         let mut method_name = "";
         let mut mapping_type = "";
         let mut path = "";
@@ -408,8 +333,8 @@ fn extract_method_mappings_with_endpoints(
             let start_line = node.start_position().row + 1;
             let end_line = node.end_position().row + 1;
 
-            println!("\n  {}: {}", "メソッド名".green(), method_name);
-            println!("  {}: {}", "マッピングタイプ".yellow(), mapping_type);
+            //println!("\n  {}: {}", "メソッド名".green(), method_name);
+            //println!("  {}: {}", "マッピングタイプ".yellow(), mapping_type);
 
             let full_path = if !path.is_empty() {
                 match base_path {
@@ -426,12 +351,6 @@ fn extract_method_mappings_with_endpoints(
                 "".to_string()
             };
 
-            if !full_path.is_empty() {
-                println!("  {}: {}", "パス".magenta(), full_path);
-            }
-
-            println!("  {}: {}:{}", "行番号".cyan(), start_line, end_line);
-
             // Extract method parameters
             let parameters = extract_method_parameters_with_data(source_code, node);
 
@@ -447,10 +366,6 @@ fn extract_method_mappings_with_endpoints(
 
             endpoints.push(endpoint);
         }
-    }
-
-    if !found {
-        println!("  メソッドレベルのマッピングは見つかりませんでした。");
     }
 
     endpoints
@@ -481,7 +396,6 @@ fn extract_method_parameters_with_data(
 
     for m in matches {
         if !found {
-            println!("  {}:", "パラメータ".blue());
             found = true;
         }
 
