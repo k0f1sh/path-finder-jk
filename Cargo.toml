@@ -1,0 +1,15 @@
+[package]
+name = "path-finder"
+version = "0.1.0"
+edition = "2021"
+description = "A CLI tool to extract Spring controller endpoints from Java and Kotlin files"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+tree-sitter = "0.20.10"
+tree-sitter-java = "0.20.1"
+anyhow = "1.0"
+colored = "2.0"
+
+[build-dependencies]
+cc="*"
