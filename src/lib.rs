@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::fs;
 use tree_sitter::{Parser, Query, QueryCursor};
+use walkdir::WalkDir;
 
 // エンドポイント情報を格納する構造体
 #[derive(Debug)]
@@ -21,17 +22,17 @@ pub struct Parameter {
 }
 
 pub fn scan_directory(dir_path: &str) -> Result<Vec<Endpoint>> {
-    let entries = fs::read_dir(dir_path)
-        .with_context(|| format!("ディレクトリの読み込みに失敗しました: {}", dir_path))?;
-
     let mut all_endpoints = Vec::new();
 
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.is_file() && path.extension().map_or(false, |ext| ext == "java") {
-            let file_path = path.to_string_lossy().to_string();
+    for entry in WalkDir::new(dir_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_file()
+            && entry.path().extension().map_or(false, |ext| ext == "java")
+        {
+            let file_path = entry.path().to_string_lossy().to_string();
             if has_request_mapping(&file_path)? {
                 let endpoints = extract_request_mapping_with_endpoints(&file_path)?;
                 all_endpoints.extend(endpoints);
