@@ -109,6 +109,7 @@ pub fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<End
                     class_node,
                     base_path.as_deref(),
                     class_name,
+                    file_path,
                 );
                 endpoints.extend(method_endpoints);
 
@@ -156,6 +157,7 @@ fn extract_method_mappings_with_endpoints(
     class_node: tree_sitter::Node,
     base_path: Option<&str>,
     class_name: &str,
+    file_path: &str,
 ) -> Vec<Endpoint> {
     // Create a query to find method-level mapping annotations
     let query_source = r#"
@@ -163,14 +165,14 @@ fn extract_method_mappings_with_endpoints(
             (modifiers
                 (marker_annotation
                     name: (identifier) @mapping_type
-                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping")))
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping")))
             name: (identifier) @method_name) @method
             
         (method_declaration
             (modifiers
                 (annotation
                     name: (identifier) @mapping_type
-                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping")
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping")
                     arguments: (annotation_argument_list
                         (string_literal) @path)))
             name: (identifier) @method_name) @method
@@ -180,7 +182,11 @@ fn extract_method_mappings_with_endpoints(
                 (annotation
                     name: (identifier) @mapping_type
                     (#match? @mapping_type "RequestMapping")
-                    arguments: (annotation_argument_list)))
+                    arguments: (annotation_argument_list
+                        (element_value_pair
+                            key: (identifier) @key
+                            (#match? @key "value")
+                            value: (string_literal) @path))))
             name: (identifier) @method_name) @method
     "#;
 
@@ -248,6 +254,7 @@ fn extract_method_mappings_with_endpoints(
                 path: full_path.trim_matches('"').to_string(),
                 parameters,
                 line_range: (start_line, end_line),
+                file_path: file_path.to_string(),
             };
 
             endpoints.push(endpoint);

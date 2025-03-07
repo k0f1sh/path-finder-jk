@@ -10,6 +10,12 @@ mod tests {
     fn test_scan_directory() -> Result<()> {
         let endpoints = scan_directory("tests/resources")?;
 
+        // デバッグ出力を追加
+        println!("検出されたエンドポイント:");
+        for endpoint in &endpoints {
+            println!("{:?}", endpoint);
+        }
+
         // 期待されるエンドポイントの数をチェック
         assert_eq!(endpoints.len(), 4, "エンドポイントの数が一致しません");
 
@@ -22,6 +28,7 @@ mod tests {
                 path: "/api/users".to_string(),
                 parameters: vec![],
                 line_range: (24, 27),
+                file_path: "tests/resources/UserController.java".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -34,6 +41,7 @@ mod tests {
                     annotation: "PathVariable".to_string(),
                 }],
                 line_range: (29, 32),
+                file_path: "tests/resources/UserController.java".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -46,18 +54,20 @@ mod tests {
                     annotation: "RequestBody".to_string(),
                 }],
                 line_range: (34, 37),
+                file_path: "tests/resources/UserController.java".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
                 method_name: "createUser2".to_string(),
                 http_method: "POST".to_string(),
-                path: "/api/users".to_string(),
+                path: "/api/users/{id}".to_string(),
                 parameters: vec![Parameter {
                     name: "user".to_string(),
                     param_type: "User".to_string(),
                     annotation: "RequestBody".to_string(),
                 }],
                 line_range: (39, 42),
+                file_path: "tests/resources/UserController.java".to_string(),
             },
         ];
 
@@ -80,6 +90,7 @@ mod tests {
             || a.http_method != b.http_method
             || a.path != b.path
             || a.line_range != b.line_range
+            || a.file_path != b.file_path
             || a.parameters.len() != b.parameters.len()
         {
             return false;

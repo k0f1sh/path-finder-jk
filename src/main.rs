@@ -48,12 +48,13 @@ fn print_endpoints_summary(endpoints: &[path_finder::Endpoint]) {
         };
 
         println!(
-            "{} {} ({}#{}:{})",
+            "{} {} ({}#{}) [{}:{}]",
             http_method,
             endpoint.path.magenta(),
             endpoint.class_name,
             endpoint.method_name,
-            endpoint.line_range.0
+            endpoint.file_path.blue(),
+            endpoint.line_range.0,
         );
 
         // パラメータがあれば表示
