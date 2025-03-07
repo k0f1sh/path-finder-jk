@@ -2,14 +2,21 @@
 name = "path-finder"
 version = "0.1.0"
 edition = "2021"
-description = "A CLI tool to extract Spring controller endpoints from Java and Kotlin files"
+
+[lib]
+name = "path_finder"
+path = "src/lib.rs"
+
+[[bin]]
+name = "path-finder"
+path = "src/main.rs"
 
 [dependencies]
+anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
+colored = "2.1"
 tree-sitter = "0.20.10"
 tree-sitter-java = "0.20.1"
-anyhow = "1.0"
-colored = "2.0"
 
-[build-dependencies]
-cc="*"
+[dev-dependencies]
+pretty_assertions = "1.4"
