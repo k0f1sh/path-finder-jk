@@ -161,6 +161,13 @@ fn has_request_mapping(file_path: &str) -> Result<bool> {
                     name: (identifier) @annotation_name
                     (#match? @annotation_name "RequestMapping")))
             name: (identifier) @class_name) @class
+        
+        (class_declaration
+            (modifiers
+                (marker_annotation
+                    name: (identifier) @annotation_name
+                    (#match? @annotation_name "RequestMapping")))
+            name: (identifier) @class_name) @class
     "#;
 
     let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
@@ -195,6 +202,13 @@ fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<Endpoin
         (class_declaration
             (modifiers
                 (annotation
+                    name: (identifier) @annotation_name
+                    (#match? @annotation_name "RequestMapping")))
+            name: (identifier) @class_name) @class
+        
+        (class_declaration
+            (modifiers
+                (marker_annotation
                     name: (identifier) @annotation_name
                     (#match? @annotation_name "RequestMapping")))
             name: (identifier) @class_name) @class
@@ -300,6 +314,15 @@ fn extract_method_mappings_with_endpoints(
                     name: (identifier) @mapping_type
                     (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping")))
             name: (identifier) @method_name) @method
+            
+        (method_declaration
+            (modifiers
+                (annotation
+                    name: (identifier) @mapping_type
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping")
+                    arguments: (annotation_argument_list
+                        (string_literal) @path)))
+            name: (identifier) @method_name) @method
     "#;
 
     let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
@@ -307,7 +330,6 @@ fn extract_method_mappings_with_endpoints(
     let mut query_cursor = QueryCursor::new();
     let matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
 
-    //println!("\n{}", "メソッドレベルのマッピング:".bold());
     let mut endpoints = Vec::new();
 
     for m in matches {
@@ -414,11 +436,6 @@ fn extract_method_parameters_with_data(
                 _ => {}
             }
         }
-
-        println!(
-            "    - {}: {} ({})",
-            param_annotation, param_name, param_type
-        );
 
         parameters.push(Parameter {
             name: param_name.to_string(),
