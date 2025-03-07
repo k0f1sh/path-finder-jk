@@ -66,6 +66,11 @@ fn main() -> Result<()> {
 }
 
 fn scan_directory(dir_path: &str) -> Result<()> {
+    println!(
+        "{}ディレクトリ内のJavaファイルをスキャンします...",
+        dir_path.blue()
+    );
+
     let entries = fs::read_dir(dir_path)
         .with_context(|| format!("ディレクトリの読み込みに失敗しました: {}", dir_path))?;
 
@@ -78,16 +83,16 @@ fn scan_directory(dir_path: &str) -> Result<()> {
 
         if path.is_file() && path.extension().map_or(false, |ext| ext == "java") {
             let file_path = path.to_string_lossy().to_string();
-            //println!("\n{}: {}", "ファイル".bold(), file_path);
+            println!("\n{}: {}", "ファイル".bold(), file_path);
 
             if has_request_mapping(&file_path)? {
                 found_controllers = true;
                 let endpoints = extract_request_mapping_with_endpoints(&file_path)?;
                 all_endpoints.extend(endpoints);
             } else {
-                //println!(
-                //    "  RequestMappingアノテーションがついているクラスは見つかりませんでした。"
-                //);
+                println!(
+                    "  RequestMappingアノテーションがついているクラスは見つかりませんでした。"
+                );
             }
         }
     }
@@ -96,6 +101,7 @@ fn scan_directory(dir_path: &str) -> Result<()> {
         println!("\n{}ディレクトリ内にRequestMappingアノテーションがついているクラスは見つかりませんでした。", dir_path);
     } else {
         // エンドポイントの概要を表示
+        println!("\n{}", "=== エンドポイント概要 ===".bold());
         print_endpoints_summary(&all_endpoints);
     }
 
@@ -105,11 +111,12 @@ fn scan_directory(dir_path: &str) -> Result<()> {
 fn print_endpoints_summary(endpoints: &[Endpoint]) {
     for endpoint in endpoints {
         let http_method = match endpoint.http_method.as_str() {
-            "GetMapping" => "GET".green(),
-            "PostMapping" => "POST".yellow(),
-            "PutMapping" => "PUT".blue(),
-            "DeleteMapping" => "DELETE".red(),
-            "PatchMapping" => "PATCH".cyan(),
+            "GET" => "GET".green(),
+            "POST" => "POST".yellow(),
+            "PUT" => "PUT".blue(),
+            "DELETE" => "DELETE".red(),
+            "PATCH" => "PATCH".cyan(),
+            "ANY" => "ANY".magenta(),
             _ => endpoint.http_method.normal(),
         };
 
@@ -323,6 +330,14 @@ fn extract_method_mappings_with_endpoints(
                     arguments: (annotation_argument_list
                         (string_literal) @path)))
             name: (identifier) @method_name) @method
+            
+        (method_declaration
+            (modifiers
+                (annotation
+                    name: (identifier) @mapping_type
+                    (#match? @mapping_type "RequestMapping")
+                    arguments: (annotation_argument_list)))
+            name: (identifier) @method_name) @method
     "#;
 
     let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
@@ -330,9 +345,12 @@ fn extract_method_mappings_with_endpoints(
     let mut query_cursor = QueryCursor::new();
     let matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
 
+    println!("\n{}", "メソッドレベルのマッピング:".bold());
+    let mut found = false;
     let mut endpoints = Vec::new();
 
     for m in matches {
+        found = true;
         let mut method_name = "";
         let mut mapping_type = "";
         let mut path = "";
@@ -355,8 +373,17 @@ fn extract_method_mappings_with_endpoints(
             let start_line = node.start_position().row + 1;
             let end_line = node.end_position().row + 1;
 
-            //println!("\n  {}: {}", "メソッド名".green(), method_name);
-            //println!("  {}: {}", "マッピングタイプ".yellow(), mapping_type);
+            // RequestMappingの場合はmethod属性を調べる
+            let http_method = if mapping_type == "RequestMapping" {
+                extract_request_mapping_method(source_code, node)
+            } else {
+                // 他のマッピングタイプはそのままHTTPメソッドに変換
+                mapping_type_to_http_method(mapping_type)
+            };
+
+            println!("\n  {}: {}", "メソッド名".green(), method_name);
+            println!("  {}: {}", "マッピングタイプ".yellow(), mapping_type);
+            println!("  {}: {}", "HTTPメソッド".blue(), http_method);
 
             let full_path = if !path.is_empty() {
                 match base_path {
@@ -373,14 +400,20 @@ fn extract_method_mappings_with_endpoints(
                 "".to_string()
             };
 
-            // Extract method parameters
+            if !full_path.is_empty() {
+                println!("  {}: {}", "パス".magenta(), full_path);
+            }
+
+            println!("  {}: {}:{}", "行番号".cyan(), start_line, end_line);
+
+            // パラメータを抽出
             let parameters = extract_method_parameters_with_data(source_code, node);
 
-            // Create endpoint
+            // エンドポイントを作成
             let endpoint = Endpoint {
                 class_name: class_name.to_string(),
                 method_name: method_name.to_string(),
-                http_method: mapping_type.to_string(),
+                http_method: http_method,
                 path: full_path.trim_matches('"').to_string(),
                 parameters,
                 line_range: (start_line, end_line),
@@ -390,7 +423,78 @@ fn extract_method_mappings_with_endpoints(
         }
     }
 
+    if !found {
+        println!("  メソッドレベルのマッピングは見つかりませんでした。");
+    }
+
     endpoints
+}
+
+// マッピングタイプをHTTPメソッドに変換する関数
+fn mapping_type_to_http_method(mapping_type: &str) -> String {
+    match mapping_type {
+        "GetMapping" => "GET".to_string(),
+        "PostMapping" => "POST".to_string(),
+        "PutMapping" => "PUT".to_string(),
+        "DeleteMapping" => "DELETE".to_string(),
+        "PatchMapping" => "PATCH".to_string(),
+        "RequestMapping" => "ANY".to_string(), // デフォルト値
+        _ => "UNKNOWN".to_string(),
+    }
+}
+
+// RequestMappingアノテーションからHTTPメソッドを抽出する関数
+fn extract_request_mapping_method(source_code: &str, method_node: tree_sitter::Node) -> String {
+    // RequestMappingのmethod属性を検索するクエリ
+    let query_source = r#"
+        (annotation
+            name: (identifier) @annotation_name
+            (#match? @annotation_name "RequestMapping")
+            arguments: (annotation_argument_list
+                (element_value_pair
+                    key: (identifier) @key
+                    (#match? @key "method")
+                    value: (_) @method_value)))
+    "#;
+
+    let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
+
+    let mut query_cursor = QueryCursor::new();
+    let matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
+
+    for m in matches {
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            if capture_name == "method_value" {
+                let method_value = &source_code[capture.node.byte_range()];
+
+                // RequestMethod.XXX 形式から XXX 部分を抽出
+                if let Some(dot_pos) = method_value.rfind('.') {
+                    if dot_pos + 1 < method_value.len() {
+                        return method_value[dot_pos + 1..].to_string();
+                    }
+                }
+
+                // 配列の場合（例：{RequestMethod.GET, RequestMethod.POST}）
+                if method_value.contains("GET") {
+                    return "GET".to_string();
+                } else if method_value.contains("POST") {
+                    return "POST".to_string();
+                } else if method_value.contains("PUT") {
+                    return "PUT".to_string();
+                } else if method_value.contains("DELETE") {
+                    return "DELETE".to_string();
+                } else if method_value.contains("PATCH") {
+                    return "PATCH".to_string();
+                }
+
+                return method_value.to_string();
+            }
+        }
+    }
+
+    // メソッドが指定されていない場合はデフォルトでANY
+    "ANY".to_string()
 }
 
 fn extract_method_parameters_with_data(
@@ -418,6 +522,7 @@ fn extract_method_parameters_with_data(
 
     for m in matches {
         if !found {
+            println!("  {}:", "パラメータ".blue());
             found = true;
         }
 
@@ -436,6 +541,11 @@ fn extract_method_parameters_with_data(
                 _ => {}
             }
         }
+
+        println!(
+            "    - {}: {} ({})",
+            param_annotation, param_name, param_type
+        );
 
         parameters.push(Parameter {
             name: param_name.to_string(),
