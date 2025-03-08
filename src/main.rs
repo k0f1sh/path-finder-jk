@@ -15,7 +15,10 @@ enum Commands {
         #[arg(default_value = "tests/resources")]
         dir_path: String,
 
-        #[arg(long, help = "Output results in JSON format")]
+        #[arg(
+            long,
+            help = "Output results in JSON format for easier parsing and integration with other tools"
+        )]
         json: bool,
     },
 }

@@ -32,6 +32,18 @@ pub fn scan_directory(dir_path: &str) -> Result<Vec<Endpoint>> {
     })
 }
 
+/// Scans the directory for Java and Kotlin files with Spring RequestMapping annotations
+/// and returns the endpoints in JSON format.
+///
+/// This is useful for integrating with other tools or scripts that can parse JSON.
+///
+/// # Arguments
+///
+/// * `dir_path` - The path to the directory to scan
+///
+/// # Returns
+///
+/// A JSON string containing an array of endpoint objects
 pub fn scan_directory_json(dir_path: &str) -> Result<String> {
     scan_directory_internal(dir_path, true).map(|result| match result {
         ScanResult::Json(json) => json,
