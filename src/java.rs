@@ -1,8 +1,22 @@
 use anyhow::{Context, Result};
 use std::fs;
-use tree_sitter::{Parser, Query, QueryCursor};
+use tree_sitter::{Parser, Query, QueryCursor, StreamingIterator};
 
 use crate::{Endpoint, Parameter};
+
+fn create_parser() -> Parser {
+    let mut parser = Parser::new();
+    let language = tree_sitter_java::LANGUAGE;
+    parser
+        .set_language(&language.into())
+        .expect("Error loading Java parser");
+    parser
+}
+
+fn create_query(query_source: &str) -> Query {
+    let language = tree_sitter_java::LANGUAGE;
+    Query::new(&language.into(), query_source).expect("Invalid query")
+}
 
 pub fn has_request_mapping(file_path: &str) -> Result<bool> {
     let source_code = fs::read_to_string(file_path)
@@ -13,10 +27,7 @@ pub fn has_request_mapping(file_path: &str) -> Result<bool> {
         return Ok(false);
     }
 
-    let mut parser = Parser::new();
-    parser
-        .set_language(tree_sitter_java::language())
-        .expect("Error loading Java parser");
+    let mut parser = create_parser();
 
     let tree = parser
         .parse(&source_code, None)
@@ -38,7 +49,7 @@ pub fn has_request_mapping(file_path: &str) -> Result<bool> {
             name: (identifier) @class_name) @class
     "#;
 
-    let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
+    let query = create_query(query_source);
 
     let mut query_cursor = QueryCursor::new();
     let matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
@@ -48,10 +59,7 @@ pub fn has_request_mapping(file_path: &str) -> Result<bool> {
 
 pub fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<Endpoint>> {
     // setup parser
-    let mut parser = Parser::new();
-    parser
-        .set_language(tree_sitter_java::language())
-        .expect("Error loading Java parser");
+    let mut parser = create_parser();
 
     // parse file
     let source_code = fs::read_to_string(file_path)
@@ -77,28 +85,27 @@ pub fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<End
             name: (identifier) @class_name) @class
     "#;
 
-    let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
+    let query = create_query(query_source);
 
     let mut query_cursor = QueryCursor::new();
-    let matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
+    let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
 
     let mut endpoints = Vec::new();
-
-    for m in matches {
+    while let Some(m) = matches.next() {
         let mut class_name = "";
 
         for capture in m.captures {
             let capture_name = &query.capture_names()[capture.index as usize];
             let node_text = &source_code[capture.node.byte_range()];
 
-            if capture_name == "class_name" {
+            if *capture_name == "class_name" {
                 class_name = node_text;
             }
         }
 
         // Get the class node to extract the full class definition
         for capture in m.captures {
-            if &query.capture_names()[capture.index as usize] == "class" {
+            if &query.capture_names()[capture.index as usize] == &"class" {
                 let class_node = capture.node;
                 // Extract the path from the annotation if available
                 let base_path = extract_request_mapping_path(&source_code, class_node);
@@ -134,15 +141,15 @@ fn extract_request_mapping_path(
                 (string_literal) @path))
     "#;
 
-    let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
+    let query = create_query(query_source);
 
     let mut query_cursor = QueryCursor::new();
-    let matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
+    let mut matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
 
-    for m in matches {
+    while let Some(m) = matches.next() {
         for capture in m.captures {
             let capture_name = &query.capture_names()[capture.index as usize];
-            if capture_name == "path" {
+            if capture_name == &"path" {
                 let path_text = &source_code[capture.node.byte_range()];
                 return Some(path_text.to_string());
             }
@@ -190,14 +197,14 @@ fn extract_method_mappings_with_endpoints(
             name: (identifier) @method_name) @method
     "#;
 
-    let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
+    let query = create_query(query_source);
 
     let mut query_cursor = QueryCursor::new();
-    let matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
+    let mut matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
 
     let mut endpoints = Vec::new();
 
-    for m in matches {
+    while let Some(m) = matches.next() {
         let mut method_name = "";
         let mut mapping_type = "";
         let mut path = "";
@@ -207,11 +214,11 @@ fn extract_method_mappings_with_endpoints(
             let capture_name = &query.capture_names()[capture.index as usize];
             let node_text = &source_code[capture.node.byte_range()];
 
-            match capture_name.as_str() {
-                "method_name" => method_name = node_text,
-                "mapping_type" => mapping_type = node_text,
-                "path" => path = node_text,
-                "method" => method_node = Some(capture.node),
+            match capture_name {
+                &"method_name" => method_name = node_text,
+                &"mapping_type" => mapping_type = node_text,
+                &"path" => path = node_text,
+                &"method" => method_node = Some(capture.node),
                 _ => {}
             }
         }
@@ -289,15 +296,15 @@ fn extract_request_mapping_method(source_code: &str, method_node: tree_sitter::N
                     value: (_) @method_value)))
     "#;
 
-    let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
+    let query = create_query(query_source);
 
     let mut query_cursor = QueryCursor::new();
-    let matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
+    let mut matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
 
-    for m in matches {
+    while let Some(m) = matches.next() {
         for capture in m.captures {
             let capture_name = &query.capture_names()[capture.index as usize];
-            if capture_name == "method_value" {
+            if capture_name == &"method_value" {
                 let method_value = &source_code[capture.node.byte_range()];
 
                 // RequestMethod.XXX 形式から XXX 部分を抽出
@@ -344,14 +351,14 @@ fn extract_method_parameters_with_data(
             name: (identifier) @param_name) @param
     "#;
 
-    let query = Query::new(tree_sitter_java::language(), query_source).expect("Invalid query");
+    let query = create_query(query_source);
 
     let mut query_cursor = QueryCursor::new();
-    let matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
+    let mut matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
 
     let mut parameters = Vec::new();
 
-    for m in matches {
+    while let Some(m) = matches.next() {
         let mut param_name = "";
         let mut param_type = "";
         let mut param_annotation = "";
@@ -360,10 +367,10 @@ fn extract_method_parameters_with_data(
             let capture_name = &query.capture_names()[capture.index as usize];
             let node_text = &source_code[capture.node.byte_range()];
 
-            match capture_name.as_str() {
-                "param_name" => param_name = node_text,
-                "param_type" => param_type = node_text,
-                "param_annotation" => param_annotation = node_text,
+            match capture_name {
+                &"param_name" => param_name = node_text,
+                &"param_type" => param_type = node_text,
+                &"param_annotation" => param_annotation = node_text,
                 _ => {}
             }
         }
