@@ -206,6 +206,7 @@ dependencies = [
  "pretty_assertions",
  "tree-sitter",
  "tree-sitter-java",
+ "tree-sitter-kotlin-sg",
  "walkdir",
 ]
 
@@ -362,6 +363,16 @@ name = "tree-sitter-java"
 version = "0.23.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0aa6cbcdc8c679b214e616fd3300da67da0e492e066df01bcf5a5921a71e90d6"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-kotlin-sg"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0e175b7530765d1e36ad234a7acaa8b2a3316153f239d724376c7ee5e8d8e98"
 dependencies = [
  "cc",
  "tree-sitter-language",

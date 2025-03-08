@@ -2,6 +2,7 @@ use anyhow::Result;
 use walkdir::WalkDir;
 
 pub mod java;
+pub mod kotlin;
 
 // エンドポイント情報を格納する構造体
 #[derive(Debug)]
@@ -37,8 +38,12 @@ pub fn scan_directory(dir_path: &str) -> Result<Vec<Endpoint>> {
                     let endpoints = java::extract_request_mapping_with_endpoints(&file_path)?;
                     all_endpoints.extend(endpoints);
                 }
+            } else if entry.path().extension().map_or(false, |ext| ext == "kt") {
+                if kotlin::has_request_mapping(&file_path)? {
+                    let endpoints = kotlin::extract_request_mapping_with_endpoints(&file_path)?;
+                    all_endpoints.extend(endpoints);
+                }
             }
-            // TODO: Kotlin support will be added here
         }
     }
 
