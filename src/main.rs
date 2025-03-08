@@ -14,6 +14,9 @@ enum Commands {
     ScanDirectory {
         #[arg(default_value = "tests/resources")]
         dir_path: String,
+
+        #[arg(long, help = "Output results in JSON format")]
+        json: bool,
     },
 }
 
@@ -21,9 +24,14 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::ScanDirectory { dir_path }) => {
-            let endpoints = path_finder::scan_directory(dir_path)?;
-            print_endpoints_summary(&endpoints);
+        Some(Commands::ScanDirectory { dir_path, json }) => {
+            if *json {
+                let json_output = path_finder::scan_directory_json(dir_path)?;
+                println!("{}", json_output);
+            } else {
+                let endpoints = path_finder::scan_directory(dir_path)?;
+                print_endpoints_summary(&endpoints);
+            }
         }
         None => {
             println!(
@@ -59,7 +67,7 @@ fn print_endpoints_summary(endpoints: &[path_finder::Endpoint]) {
 
         // パラメータがあれば表示
         if !endpoint.parameters.is_empty() {
-            print!("  パラメータ: ");
+            print!("  parameters: ");
             for (i, param) in endpoint.parameters.iter().enumerate() {
                 if i > 0 {
                     print!(", ");

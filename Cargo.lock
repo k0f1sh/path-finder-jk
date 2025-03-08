@@ -204,6 +204,8 @@ dependencies = [
  "clap",
  "colored",
  "pretty_assertions",
+ "serde",
+ "serde_json",
  "tree-sitter",
  "tree-sitter-java",
  "tree-sitter-kotlin-sg",

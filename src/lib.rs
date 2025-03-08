@@ -1,11 +1,13 @@
 use anyhow::Result;
+use serde::Serialize;
+use serde_json;
 use walkdir::WalkDir;
 
 pub mod java;
 pub mod kotlin;
 
 // エンドポイント情報を格納する構造体
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Endpoint {
     pub class_name: String,
     pub method_name: String,
@@ -16,7 +18,7 @@ pub struct Endpoint {
     pub file_path: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Parameter {
     pub name: String,
     pub param_type: String,
@@ -24,6 +26,25 @@ pub struct Parameter {
 }
 
 pub fn scan_directory(dir_path: &str) -> Result<Vec<Endpoint>> {
+    scan_directory_internal(dir_path, false).map(|result| match result {
+        ScanResult::Endpoints(endpoints) => endpoints,
+        _ => unreachable!(),
+    })
+}
+
+pub fn scan_directory_json(dir_path: &str) -> Result<String> {
+    scan_directory_internal(dir_path, true).map(|result| match result {
+        ScanResult::Json(json) => json,
+        _ => unreachable!(),
+    })
+}
+
+enum ScanResult {
+    Endpoints(Vec<Endpoint>),
+    Json(String),
+}
+
+fn scan_directory_internal(dir_path: &str, json_output: bool) -> Result<ScanResult> {
     let mut all_endpoints = Vec::new();
 
     for entry in WalkDir::new(dir_path)
@@ -47,5 +68,11 @@ pub fn scan_directory(dir_path: &str) -> Result<Vec<Endpoint>> {
         }
     }
 
-    Ok(all_endpoints)
+    if json_output {
+        Ok(ScanResult::Json(serde_json::to_string_pretty(
+            &all_endpoints,
+        )?))
+    } else {
+        Ok(ScanResult::Endpoints(all_endpoints))
+    }
 }
