@@ -117,12 +117,13 @@ fn extract_request_mapping_path(
 ) -> Option<String> {
     // Create a query to find RequestMapping annotation with path
     let query_source = r#"
-        (annotation
-        (constructor_invocation
-            (user_type (type_identifier) @annotation_name
-                (#match? @annotation_name "RequestMapping"))
-            (value_arguments (value_argument (simple_identifier) @path
-                (#match? @path "value") (collection_literal (string_literal (_) @value))))))
+(class_declaration
+  (modifiers
+    (annotation
+      (constructor_invocation
+        (user_type) @annotation_name (#match? @annotation_name "RequestMapping")
+        (value_arguments (value_argument (string_literal (string_content) @path)))
+      ))))
     "#;
 
     let query = create_query(query_source);
@@ -133,7 +134,7 @@ fn extract_request_mapping_path(
     while let Some(m) = matches.next() {
         for capture in m.captures {
             let capture_name = &query.capture_names()[capture.index as usize];
-            if capture_name == &"value" {
+            if capture_name == &"path" {
                 let path_text = &source_code[capture.node.byte_range()];
                 return Some(path_text.to_string());
             }
