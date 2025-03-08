@@ -27,6 +27,7 @@ POST /api/users (UserController#createUser) [src/main/java/com/example/UserContr
 - [x] Javaファイルのパース
 - [x] Spring FrameworkのRequestMappingアノテーションの解析
 - [x] エンドポイント情報の抽出
-- [ ] Kotlinファイルのサポート
-  - [ ] Kotlinパーサーの追加
-  - [ ] Spring FrameworkアノテーションのKotlin構文対応
+- [x] Kotlinファイルのサポート
+  - [x] Kotlinパーサーの追加
+  - [x] Spring FrameworkアノテーションのKotlin構文対応
+  - [ ] GetMappingなどでconstructor_invocationじゃないパターンの対応
