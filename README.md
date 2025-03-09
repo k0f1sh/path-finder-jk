@@ -1,8 +1,8 @@
 # path-finder
-
-- Rust製のCLIツール
-- tree-sitterを使った構文解析
 - Java, KotlinのファイルからSpringのパス情報を出力
+- tree-sitterを使った構文解析
+- Rust製
+
 
 ## Usage
 
