@@ -63,4 +63,4 @@ JSON出力例：
 - [x] Kotlinファイルのサポート
   - [x] Kotlinパーサーの追加
   - [x] Spring FrameworkアノテーションのKotlin構文対応
-  - [ ] GetMappingなどでvalueが指定されているパターンの対応
+  - [x] GetMappingなどでvalueが指定されているパターンの対応
