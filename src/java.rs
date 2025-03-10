@@ -188,6 +188,18 @@ fn extract_method_mappings_with_endpoints(
             (modifiers
                 (annotation
                     name: (identifier) @mapping_type
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping")
+                    arguments: (annotation_argument_list
+                        (element_value_pair
+                            key: (identifier) @key
+                            (#match? @key "value")
+                            value: (string_literal) @path))))
+            name: (identifier) @method_name) @method
+
+        (method_declaration
+            (modifiers
+                (annotation
+                    name: (identifier) @mapping_type
                     (#match? @mapping_type "RequestMapping")
                     arguments: (annotation_argument_list
                         (element_value_pair
