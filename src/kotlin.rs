@@ -169,13 +169,13 @@ fn extract_method_mappings_with_endpoints(
                     (value_arguments (value_argument (string_literal (string_content) @path)))
                     )))
              (simple_identifier) @method_name) @method
-            
+
         (function_declaration
             (modifiers
                 (annotation
                   (constructor_invocation
                     (user_type (type_identifier) @mapping_type
-                      (#match? @mapping_type "RequestMapping"))
+                      (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping"))
                     (value_arguments (value_argument (simple_identifier) @key
                       (#match? @key "value")
                       (collection_literal (string_literal (string_content) @path))
