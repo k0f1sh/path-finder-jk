@@ -31,7 +31,7 @@ class UserController(private val userService: UserService) {
         return ResponseEntity.ok(userService.findById(id))
     }
 
-    @GetMapping(value = ["/{id}"])
+    @GetMapping(value = ["/{id}"], headers = [XCustomHeader])
     fun getUserById3(@PathVariable id: Long): ResponseEntity<*> {
         return ResponseEntity.ok(userService.findById(id))
     }

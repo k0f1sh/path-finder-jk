@@ -238,6 +238,7 @@ fn extract_method_mappings_with_endpoints(
             };
 
             let parameters = extract_method_parameters_with_data(source_code, node);
+            let headers = extract_method_headers_with_data(source_code, node);
 
             endpoints.push(Endpoint {
                 class_name: class_name.to_string(),
@@ -247,7 +248,7 @@ fn extract_method_mappings_with_endpoints(
                 parameters,
                 line_range: (start_line, end_line),
                 file_path: file_path.to_string(),
-                headers: "".to_string(),
+                headers: headers.to_string(),
             });
         }
     }
@@ -348,4 +349,42 @@ fn extract_method_parameters_with_data(
     }
 
     parameters
+}
+
+fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter::Node) -> String {
+    // Create a query to find method parameters with annotations
+    let query_source = r#"
+        (function_declaration
+            (modifiers
+                (annotation
+                  (constructor_invocation
+                    (user_type (type_identifier) @mapping_type
+                      (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping"))
+                    (value_arguments (value_argument (simple_identifier) @key
+                      (#match? @key "headers")
+                      (collection_literal (_) @headers)
+                    ))
+                    )))
+             (simple_identifier) @method_name) @method
+    "#;
+
+    let query = create_query(query_source);
+
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
+
+    let mut headers = "";
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            let node_text = &source_code[capture.node.byte_range()];
+
+            match capture_name {
+                &"headers" => headers = node_text,
+                _ => {}
+            }
+        }
+    }
+
+    headers.to_string()
 }

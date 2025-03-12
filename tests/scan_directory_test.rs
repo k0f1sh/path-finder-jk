@@ -137,7 +137,7 @@ mod tests {
                 }],
                 line_range: (34, 37),
                 file_path: "tests/resources/UserController.kt".to_string(),
-                headers: "".to_string(),
+                headers: "XCustomHeader".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
