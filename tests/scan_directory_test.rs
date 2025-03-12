@@ -17,7 +17,7 @@ mod tests {
         }
 
         // 期待されるエンドポイントの数をチェック
-        assert_eq!(endpoints.len(), 10, "エンドポイントの数が一致しません");
+        assert_eq!(endpoints.len(), 11, "エンドポイントの数が一致しません");
 
         // エンドポイントの内容を検証
         let expected_endpoints = vec![
@@ -57,6 +57,7 @@ mod tests {
                 }],
                 line_range: (34, 37),
                 file_path: "tests/resources/UserController.java".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -94,6 +95,7 @@ mod tests {
                 parameters: vec![],
                 line_range: (19, 22),
                 file_path: "tests/resources/UserController.kt".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -107,6 +109,7 @@ mod tests {
                 }],
                 line_range: (24, 27),
                 file_path: "tests/resources/UserController.kt".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -120,6 +123,21 @@ mod tests {
                 }],
                 line_range: (29, 32),
                 file_path: "tests/resources/UserController.kt".to_string(),
+                headers: "".to_string(),
+            },
+            Endpoint {
+                class_name: "UserController".to_string(),
+                method_name: "getUserById3".to_string(),
+                http_method: "GET".to_string(),
+                path: "/api/kotlin/users/{id}".to_string(),
+                parameters: vec![Parameter {
+                    name: "id".to_string(),
+                    param_type: "Long".to_string(),
+                    annotation: "PathVariable".to_string(),
+                }],
+                line_range: (34, 37),
+                file_path: "tests/resources/UserController.kt".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -131,8 +149,9 @@ mod tests {
                     param_type: "User".to_string(),
                     annotation: "RequestBody".to_string(),
                 }],
-                line_range: (34, 37),
+                line_range: (39, 42),
                 file_path: "tests/resources/UserController.kt".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -144,8 +163,9 @@ mod tests {
                     param_type: "User".to_string(),
                     annotation: "RequestBody".to_string(),
                 }],
-                line_range: (39, 42),
+                line_range: (44, 47),
                 file_path: "tests/resources/UserController.kt".to_string(),
+                headers: "".to_string(),
             },
         ];
 
