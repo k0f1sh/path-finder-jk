@@ -31,6 +31,11 @@ class UserController(private val userService: UserService) {
         return ResponseEntity.ok(userService.findById(id))
     }
 
+    @GetMapping(value = ["/{id}"])
+    fun getUserById3(@PathVariable id: Long): ResponseEntity<*> {
+        return ResponseEntity.ok(userService.findById(id))
+    }
+
     @PostMapping
     fun createUser(@RequestBody user: User): ResponseEntity<*> {
         return ResponseEntity.ok(userService.save(user))

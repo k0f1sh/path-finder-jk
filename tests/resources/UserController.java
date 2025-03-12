@@ -41,7 +41,7 @@ public class UserController {
         return ResponseEntity.ok(userService.save(user));
     }
 
-    @RequestMapping(method = RequestMethod.POST, value = "/{id}")
+    @RequestMapping(method = RequestMethod.POST, value = "/{id}", headers = XCustomHeader)
     public ResponseEntity<?> createUser2(@RequestBody User user) {
         return ResponseEntity.ok(userService.save(user));
     }

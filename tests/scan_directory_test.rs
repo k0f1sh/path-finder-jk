@@ -29,6 +29,7 @@ mod tests {
                 parameters: vec![],
                 line_range: (24, 27),
                 file_path: "tests/resources/UserController.java".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -42,6 +43,7 @@ mod tests {
                 }],
                 line_range: (29, 32),
                 file_path: "tests/resources/UserController.java".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -68,6 +70,7 @@ mod tests {
                 }],
                 line_range: (39, 42),
                 file_path: "tests/resources/UserController.java".to_string(),
+                headers: "".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -81,6 +84,7 @@ mod tests {
                 }],
                 line_range: (44, 47),
                 file_path: "tests/resources/UserController.java".to_string(),
+                headers: "XCustomHeader".to_string(),
             },
             Endpoint {
                 class_name: "UserController".to_string(),
@@ -166,6 +170,7 @@ mod tests {
             || a.line_range != b.line_range
             || a.file_path != b.file_path
             || a.parameters.len() != b.parameters.len()
+            || a.headers != b.headers
         {
             return false;
         }

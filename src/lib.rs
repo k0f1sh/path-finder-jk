@@ -16,6 +16,7 @@ pub struct Endpoint {
     pub parameters: Vec<Parameter>,
     pub line_range: (usize, usize),
     pub file_path: String,
+    pub headers: String,
 }
 
 #[derive(Debug, Serialize)]

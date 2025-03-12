@@ -247,6 +247,7 @@ fn extract_method_mappings_with_endpoints(
                 parameters,
                 line_range: (start_line, end_line),
                 file_path: file_path.to_string(),
+                headers: "".to_string(),
             });
         }
     }
