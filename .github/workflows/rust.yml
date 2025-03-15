@@ -63,13 +63,13 @@ jobs:
         mkdir -p artifacts
         cp ${{ matrix.binary_path }} artifacts/
         cd artifacts
-        tar -czf path-finder-${{ matrix.target }}.tar.gz path-finder
+        tar -czf spring-path-finder-${{ matrix.target }}.tar.gz spring-path-finder
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: path-finder-${{ matrix.target }}
-        path: artifacts/path-finder-${{ matrix.target }}.tar.gz
+        name: spring-path-finder-${{ matrix.target }}
+        path: artifacts/spring-path-finder-${{ matrix.target }}.tar.gz
         if-no-files-found: error
 
   release:
