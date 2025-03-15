@@ -53,6 +53,7 @@ jobs:
         else
           cargo build --release --target ${{ matrix.target }}
         fi
+        ls -R target
     
     - name: Run tests (skip cross-compiled targets)
       if: ${{ !matrix.use_cross }}
