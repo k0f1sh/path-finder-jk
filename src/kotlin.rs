@@ -280,6 +280,16 @@ fn extract_request_mapping_method(source_code: &str, method_node: tree_sitter::N
                          (navigation_expression (navigation_suffix (simple_identifier) @http_method)))
                     ))
                     ))
+                (annotation
+                  (constructor_invocation
+                    (user_type (type_identifier) @mapping_type
+                      (#match? @mapping_type "RequestMapping"))
+                    (value_arguments
+                      (value_argument (simple_identifier) @key (#match? @key "method")
+                        (collection_literal
+                         (simple_identifier) @http_method)
+                    ))
+                    ))
     "#;
 
     let query = create_query(query_source);

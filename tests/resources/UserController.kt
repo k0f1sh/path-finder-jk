@@ -46,7 +46,7 @@ class UserController(private val userService: UserService) {
         return ResponseEntity.ok(userService.save(user))
     }
 
-    @RequestMapping(value = ["/{id}/name-id"], method = [RequestMethod.PUT], produces = ["application/json"])
+    @RequestMapping(value = ["/{id}/name-id"], method = [PUT], produces = ["application/json"])
     fun updateNameId(@PathVariable id: Long, @RequestBody params: UpdateNameIdRequestParams): ResponseEntity<*> {
         return ResponseEntity.ok().build()
     }
