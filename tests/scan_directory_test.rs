@@ -16,8 +16,8 @@ mod tests {
             println!("{:?}", endpoint);
         }
 
-        // 期待されるエンドポイントの数をチェック
-        assert_eq!(endpoints.len(), 11, "エンドポイントの数が一致しません");
+        // 期待されるエンドポイントの数を12に修正
+        assert_eq!(endpoints.len(), 12, "エンドポイントの数が一致しません");
 
         // エンドポイントの内容を検証
         let expected_endpoints = vec![
@@ -164,6 +164,32 @@ mod tests {
                     annotation: "RequestBody".to_string(),
                 }],
                 line_range: (44, 47),
+                file_path: "tests/resources/UserController.kt".to_string(),
+                headers: "".to_string(),
+            },
+            Endpoint {
+                class_name: "UserController".to_string(),
+                method_name: "updateNameId".to_string(),
+                http_method: "PUT".to_string(),
+                path: "/api/kotlin/users/{id}/name-id".to_string(),
+                parameters: vec![
+                    Parameter {
+                        name: "id".to_string(),
+                        param_type: "Long".to_string(),
+                        annotation: "PathVariable".to_string(),
+                    },
+                    Parameter {
+                        name: "params".to_string(),
+                        param_type: "UpdateNameIdRequestParams".to_string(),
+                        annotation: "PathVariable".to_string(),
+                    },
+                    Parameter {
+                        name: "params".to_string(),
+                        param_type: "UpdateNameIdRequestParams".to_string(),
+                        annotation: "RequestBody".to_string(),
+                    },
+                ],
+                line_range: (49, 52),
                 file_path: "tests/resources/UserController.kt".to_string(),
                 headers: "".to_string(),
             },
