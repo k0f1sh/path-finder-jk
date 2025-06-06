@@ -1,8 +1,18 @@
 use anyhow::{Context, Result};
 use std::fs;
 use tree_sitter::{Parser, Query, QueryCursor, StreamingIterator};
+use walkdir::WalkDir;
 
 use crate::{Endpoint, Parameter};
+
+// 継承処理用の構造体
+#[derive(Debug)]
+struct InheritanceTask {
+    child_file_path: String,
+    child_class_name: String,
+    child_base_path: Option<String>,
+    parent_class_name: String,
+}
 
 fn create_parser() -> Parser {
     let mut parser = Parser::new();
@@ -57,7 +67,9 @@ pub fn has_request_mapping(file_path: &str) -> Result<bool> {
     Ok(matches.count() > 0)
 }
 
-pub fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<Endpoint>> {
+pub fn extract_request_mapping_with_endpoints(
+    file_path: &str,
+) -> Result<(Vec<Endpoint>, Vec<InheritanceTask>)> {
     // setup parser
     let mut parser = create_parser();
 
@@ -91,6 +103,8 @@ pub fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<End
     let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
 
     let mut endpoints = Vec::new();
+    let mut inheritance_tasks = Vec::new();
+
     while let Some(m) = matches.next() {
         let mut class_name = "";
 
@@ -120,12 +134,22 @@ pub fn extract_request_mapping_with_endpoints(file_path: &str) -> Result<Vec<End
                 );
                 endpoints.extend(method_endpoints);
 
+                // Check for inheritance and create tasks
+                let tasks = check_inheritance_and_create_tasks(
+                    &source_code,
+                    class_node,
+                    class_name,
+                    base_path,
+                    file_path,
+                );
+                inheritance_tasks.extend(tasks);
+
                 break;
             }
         }
     }
 
-    Ok(endpoints)
+    Ok((endpoints, inheritance_tasks))
 }
 
 fn extract_request_mapping_path(
@@ -400,10 +424,11 @@ fn extract_method_parameters_with_data(
 
     parameters
 }
+
 fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter::Node) -> String {
     // Create a query to find method parameters with annotations
     let query_source = r#"
-            (method_declaration
+        (method_declaration
             (modifiers
                 (annotation
                     name: (identifier) @mapping_type
@@ -435,4 +460,219 @@ fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter:
     }
 
     headers.to_string()
+}
+
+// 継承情報を抽出する関数
+fn extract_inheritance_info(source_code: &str, class_node: tree_sitter::Node) -> Option<String> {
+    // Create a query to find class inheritance (extends keyword)
+    let query_source = r#"
+        (class_declaration
+            (superclass (type_identifier) @parent_class_name))
+    "#;
+
+    let query = create_query(query_source);
+
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
+
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            if capture_name == &"parent_class_name" {
+                let parent_class_name = &source_code[capture.node.byte_range()];
+                return Some(parent_class_name.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+// 親クラスファイルを探索する関数
+fn find_parent_class_file(scan_root_dir: &str, parent_class_name: &str) -> Option<String> {
+    let target_filename = format!("{}.java", parent_class_name);
+
+    for entry in WalkDir::new(scan_root_dir)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_file() {
+            if let Some(filename) = entry.path().file_name() {
+                if filename == target_filename.as_str() {
+                    // ファイル名が一致した場合、クラス名も確認
+                    let file_path = entry.path().to_string_lossy().to_string();
+                    if verify_class_name_in_file(&file_path, parent_class_name).unwrap_or(false) {
+                        return Some(file_path);
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+// ファイル内に指定されたクラス名があるかを確認する関数
+fn verify_class_name_in_file(file_path: &str, expected_class_name: &str) -> Result<bool> {
+    let source_code = fs::read_to_string(file_path)
+        .with_context(|| format!("ファイルの読み込みに失敗しました: {}", file_path))?;
+
+    let mut parser = create_parser();
+    let tree = parser
+        .parse(&source_code, None)
+        .expect("パースに失敗しました");
+
+    let query_source = r#"
+        (class_declaration
+            name: (identifier) @class_name)
+    "#;
+
+    let query = create_query(query_source);
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
+
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            if capture_name == &"class_name" {
+                let class_name = &source_code[capture.node.byte_range()];
+                if class_name == expected_class_name {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+
+    Ok(false)
+}
+
+// 親クラスのメソッドを継承用に抽出する関数
+fn extract_parent_methods_for_inheritance(
+    parent_file_path: &str,
+    task: &InheritanceTask,
+) -> Result<Vec<Endpoint>> {
+    let source_code = fs::read_to_string(parent_file_path).with_context(|| {
+        format!(
+            "親クラスファイルの読み込みに失敗しました: {}",
+            parent_file_path
+        )
+    })?;
+
+    let mut parser = create_parser();
+    let tree = parser
+        .parse(&source_code, None)
+        .expect("親クラスのパースに失敗しました");
+
+    // 親クラスを見つける
+    let query_source = r#"
+        (class_declaration
+            name: (identifier) @class_name) @class
+    "#;
+
+    let query = create_query(query_source);
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
+
+    let mut endpoints = Vec::new();
+
+    while let Some(m) = matches.next() {
+        let mut found_target_class = false;
+        let mut class_node = None;
+
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            let node_text = &source_code[capture.node.byte_range()];
+
+            if capture_name == &"class_name" && node_text == task.parent_class_name {
+                found_target_class = true;
+            } else if capture_name == &"class" {
+                class_node = Some(capture.node);
+            }
+        }
+
+        if found_target_class {
+            if let Some(class_node) = class_node {
+                // 親クラスのメソッドを抽出（子クラスの情報を使用）
+                let parent_endpoints = extract_method_mappings_with_endpoints(
+                    &source_code,
+                    class_node,
+                    task.child_base_path.as_deref(), // 子クラスのbase_pathを使用
+                    &task.child_class_name,          // 子クラス名を使用
+                    &task.child_file_path,           // 子クラスのファイルパスを使用
+                );
+                endpoints.extend(parent_endpoints);
+                break;
+            }
+        }
+    }
+
+    Ok(endpoints)
+}
+
+// 継承タスクを作成する関数
+fn check_inheritance_and_create_tasks(
+    source_code: &str,
+    class_node: tree_sitter::Node,
+    class_name: &str,
+    base_path: Option<String>,
+    file_path: &str,
+) -> Vec<InheritanceTask> {
+    if let Some(parent_class_name) = extract_inheritance_info(source_code, class_node) {
+        vec![InheritanceTask {
+            child_file_path: file_path.to_string(),
+            child_class_name: class_name.to_string(),
+            child_base_path: base_path,
+            parent_class_name,
+        }]
+    } else {
+        vec![]
+    }
+}
+
+// 継承キューを処理する関数
+fn process_inheritance_queue(
+    queue: Vec<InheritanceTask>,
+    scan_root_dir: &str,
+) -> Result<Vec<Endpoint>> {
+    let mut inherited_endpoints = Vec::new();
+
+    for task in queue {
+        if let Some(parent_file_path) =
+            find_parent_class_file(scan_root_dir, &task.parent_class_name)
+        {
+            match extract_parent_methods_for_inheritance(&parent_file_path, &task) {
+                Ok(endpoints) => {
+                    inherited_endpoints.extend(endpoints);
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to extract methods from parent class {}: {}",
+                        task.parent_class_name, e
+                    );
+                }
+            }
+        } else {
+            eprintln!(
+                "Warning: Parent class {} not found for {}",
+                task.parent_class_name, task.child_class_name
+            );
+        }
+    }
+
+    Ok(inherited_endpoints)
+}
+
+// 継承対応版のエンドポイント抽出関数（公開用）
+pub fn extract_request_mapping_with_inheritance(
+    file_path: &str,
+    scan_root_dir: &str,
+) -> Result<Vec<Endpoint>> {
+    let (mut endpoints, inheritance_tasks) = extract_request_mapping_with_endpoints(file_path)?;
+
+    // 継承処理
+    let inherited_endpoints = process_inheritance_queue(inheritance_tasks, scan_root_dir)?;
+    endpoints.extend(inherited_endpoints);
+
+    Ok(endpoints)
 }
