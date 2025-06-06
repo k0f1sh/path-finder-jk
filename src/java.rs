@@ -8,6 +8,7 @@ use crate::{Endpoint, Parameter};
 // 継承処理用の構造体
 #[derive(Debug)]
 struct InheritanceTask {
+    #[allow(dead_code)]
     child_file_path: String,
     child_class_name: String,
     child_base_path: Option<String>,
@@ -67,7 +68,7 @@ pub fn has_request_mapping(file_path: &str) -> Result<bool> {
     Ok(matches.count() > 0)
 }
 
-pub fn extract_request_mapping_with_endpoints(
+fn extract_request_mapping_with_endpoints(
     file_path: &str,
 ) -> Result<(Vec<Endpoint>, Vec<InheritanceTask>)> {
     // setup parser
@@ -630,14 +631,88 @@ fn check_inheritance_and_create_tasks(
     }
 }
 
-// 継承キューを処理する関数
+// 親クラスからさらなる継承タスクを抽出する関数
+fn extract_further_inheritance_tasks(
+    parent_file_path: &str,
+    current_task: &InheritanceTask,
+) -> Result<Vec<InheritanceTask>> {
+    let source_code = fs::read_to_string(parent_file_path).with_context(|| {
+        format!(
+            "親クラスファイルの読み込みに失敗しました: {}",
+            parent_file_path
+        )
+    })?;
+
+    let mut parser = create_parser();
+    let tree = parser
+        .parse(&source_code, None)
+        .expect("親クラスのパースに失敗しました");
+
+    // 親クラスを見つける
+    let query_source = r#"
+        (class_declaration
+            name: (identifier) @class_name) @class
+    "#;
+
+    let query = create_query(query_source);
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
+
+    let mut tasks = Vec::new();
+
+    while let Some(m) = matches.next() {
+        let mut found_target_class = false;
+        let mut class_node = None;
+
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            let node_text = &source_code[capture.node.byte_range()];
+
+            if capture_name == &"class_name" && node_text == current_task.parent_class_name {
+                found_target_class = true;
+            } else if capture_name == &"class" {
+                class_node = Some(capture.node);
+            }
+        }
+
+        if found_target_class {
+            if let Some(class_node) = class_node {
+                // 親クラスがさらに継承している場合、新しいタスクを作成
+                if let Some(grandparent_class_name) =
+                    extract_inheritance_info(&source_code, class_node)
+                {
+                    tasks.push(InheritanceTask {
+                        child_file_path: current_task.child_file_path.clone(),
+                        child_class_name: current_task.child_class_name.clone(),
+                        child_base_path: current_task.child_base_path.clone(),
+                        parent_class_name: grandparent_class_name,
+                    });
+                }
+                break;
+            }
+        }
+    }
+
+    Ok(tasks)
+}
+
+// 継承キューを処理する関数（多重継承対応）
 fn process_inheritance_queue(
     queue: Vec<InheritanceTask>,
     scan_root_dir: &str,
 ) -> Result<Vec<Endpoint>> {
     let mut inherited_endpoints = Vec::new();
+    let mut processed_classes = std::collections::HashSet::new();
+    let mut task_queue = std::collections::VecDeque::from(queue);
 
-    for task in queue {
+    while let Some(task) = task_queue.pop_front() {
+        // 無限ループ防止：既に処理済みのクラスはスキップ
+        let class_key = format!("{}:{}", task.parent_class_name, task.child_class_name);
+        if processed_classes.contains(&class_key) {
+            continue;
+        }
+        processed_classes.insert(class_key);
+
         if let Some(parent_file_path) =
             find_parent_class_file(scan_root_dir, &task.parent_class_name)
         {
@@ -648,6 +723,22 @@ fn process_inheritance_queue(
                 Err(e) => {
                     eprintln!(
                         "Warning: Failed to extract methods from parent class {}: {}",
+                        task.parent_class_name, e
+                    );
+                    continue;
+                }
+            }
+
+            // 親クラスがさらに継承している場合、新しいタスクをキューに追加
+            match extract_further_inheritance_tasks(&parent_file_path, &task) {
+                Ok(new_tasks) => {
+                    for new_task in new_tasks {
+                        task_queue.push_back(new_task);
+                    }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to extract further inheritance from {}: {}",
                         task.parent_class_name, e
                     );
                 }

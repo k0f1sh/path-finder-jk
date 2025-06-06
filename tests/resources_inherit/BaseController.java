@@ -6,8 +6,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.http.ResponseEntity;
 
-// 親クラス - @RequestMappingアノテーションなし
-public class BaseController {
+// 親クラス - @RequestMappingアノテーションなし、GrandParentControllerを継承
+public class BaseController extends GrandParentController {
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {
