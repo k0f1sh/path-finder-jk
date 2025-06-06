@@ -425,25 +425,26 @@ fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter:
 
 // 継承情報を抽出する関数（Kotlin用）
 fn extract_inheritance_info(source_code: &str, class_node: tree_sitter::Node) -> Option<String> {
-    // Get the class declaration text
-    let class_text = &source_code[class_node.byte_range()];
+    // Define a Tree-sitter query to extract the superclass name
+    let query_source = r#"
+        (class_declaration
+            name: (simple_identifier) @class_name
+            (superclass
+                (user_type (simple_identifier) @superclass_name)
+            )
+        )
+    "#;
 
-    // Simple regex-based approach to find inheritance
-    // Look for pattern: class ClassName : ParentClass
-    if let Some(colon_pos) = class_text.find(" : ") {
-        let after_colon = &class_text[colon_pos + 3..];
+    let query = create_query(query_source);
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
 
-        // Find the parent class name (until '(' or '{' or whitespace)
-        let parent_class_end = after_colon
-            .find('(')
-            .or_else(|| after_colon.find('{'))
-            .or_else(|| after_colon.find(' '))
-            .unwrap_or(after_colon.len());
-
-        let parent_class_name = after_colon[..parent_class_end].trim();
-
-        if !parent_class_name.is_empty() {
-            return Some(parent_class_name.to_string());
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            if query.capture_names()[capture.index as usize] == "superclass_name" {
+                let superclass_name = &source_code[capture.node.byte_range()];
+                return Some(superclass_name.to_string());
+            }
         }
     }
 
