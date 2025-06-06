@@ -555,13 +555,13 @@ fn extract_parent_methods_for_inheritance(
 
         if found_target_class {
             if let Some(class_node) = class_node {
-                // 親クラスのメソッドを抽出（子クラスの情報を使用）
+                // 親クラスのメソッドを抽出（親クラス名と親ファイルパスを正しく使用）
                 let parent_endpoints = extract_method_mappings_with_endpoints(
                     &source_code,
                     class_node,
                     task.child_base_path.as_deref(), // 子クラスのbase_pathを使用
-                    &task.child_class_name,          // 子クラス名を使用
-                    &task.child_file_path,           // 子クラスのファイルパスを使用
+                    &task.parent_class_name,         // 親クラス名を使用
+                    parent_file_path,                // 親クラスのファイルパスを使用（修正）
                 );
                 endpoints.extend(parent_endpoints);
                 break;

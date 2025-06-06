@@ -50,11 +50,11 @@ mod tests {
 
         // Java ChildController の継承されたメソッド（親クラスから）
         let java_inherited_health = endpoints.iter().find(|e| {
-            e.class_name == "ChildController"
+            e.class_name == "BaseController"
                 && e.method_name == "health"
                 && e.path == "/api/child/health"
                 && e.http_method == "GET"
-                && e.file_path.contains("ChildController.java")
+                && e.file_path.contains("BaseController.java")
         });
         assert!(
             java_inherited_health.is_some(),
@@ -62,11 +62,11 @@ mod tests {
         );
 
         let java_inherited_status = endpoints.iter().find(|e| {
-            e.class_name == "ChildController"
+            e.class_name == "BaseController"
                 && e.method_name == "getStatus"
                 && e.path == "/api/child/status/{id}"
                 && e.http_method == "GET"
-                && e.file_path.contains("ChildController.java")
+                && e.file_path.contains("BaseController.java")
         });
         assert!(
             java_inherited_status.is_some(),
@@ -74,11 +74,11 @@ mod tests {
         );
 
         let java_inherited_common = endpoints.iter().find(|e| {
-            e.class_name == "ChildController"
+            e.class_name == "BaseController"
                 && e.method_name == "commonAction"
                 && e.path == "/api/child/common"
                 && e.http_method == "POST"
-                && e.file_path.contains("ChildController.java")
+                && e.file_path.contains("BaseController.java")
         });
         assert!(
             java_inherited_common.is_some(),
@@ -112,11 +112,11 @@ mod tests {
 
         // Kotlin ChildController の継承されたメソッド（親クラスから）
         let kotlin_inherited_health = endpoints.iter().find(|e| {
-            e.class_name == "ChildController"
+            e.class_name == "BaseController"
                 && e.method_name == "health"
                 && e.path == "/api/kotlin/child/health"
                 && e.http_method == "GET"
-                && e.file_path.contains("ChildController.kt")
+                && e.file_path.contains("BaseController.kt")
         });
         assert!(
             kotlin_inherited_health.is_some(),
@@ -124,11 +124,11 @@ mod tests {
         );
 
         let kotlin_inherited_status = endpoints.iter().find(|e| {
-            e.class_name == "ChildController"
+            e.class_name == "BaseController"
                 && e.method_name == "getStatus"
                 && e.path == "/api/kotlin/child/status/{id}"
                 && e.http_method == "GET"
-                && e.file_path.contains("ChildController.kt")
+                && e.file_path.contains("BaseController.kt")
         });
         assert!(
             kotlin_inherited_status.is_some(),
@@ -136,11 +136,11 @@ mod tests {
         );
 
         let kotlin_inherited_common = endpoints.iter().find(|e| {
-            e.class_name == "ChildController"
+            e.class_name == "BaseController"
                 && e.method_name == "commonAction"
                 && e.path == "/api/kotlin/child/common"
                 && e.http_method == "POST"
-                && e.file_path.contains("ChildController.kt")
+                && e.file_path.contains("BaseController.kt")
         });
         assert!(
             kotlin_inherited_common.is_some(),
@@ -201,12 +201,12 @@ mod tests {
         // 子クラスの@RequestMappingパス + 親クラスのメソッドパスが正しく結合されることを確認
         let java_health_path = endpoints
             .iter()
-            .find(|e| e.method_name == "health" && e.file_path.contains("ChildController.java"))
+            .find(|e| e.method_name == "health" && e.file_path.contains("BaseController.java"))
             .map(|e| &e.path);
 
         let kotlin_health_path = endpoints
             .iter()
-            .find(|e| e.method_name == "health" && e.file_path.contains("ChildController.kt"))
+            .find(|e| e.method_name == "health" && e.file_path.contains("BaseController.kt"))
             .map(|e| &e.path);
 
         assert_eq!(
@@ -230,47 +230,89 @@ mod tests {
         let endpoints = scan_directory("tests/resources_inherit")?;
 
         // 各ファイル内で同じメソッド名が重複していないことを確認
-        let java_methods: Vec<_> = endpoints
+        let java_child_methods: Vec<_> = endpoints
             .iter()
             .filter(|e| e.file_path.contains("ChildController.java"))
             .map(|e| &e.method_name)
             .collect();
 
-        let kotlin_methods: Vec<_> = endpoints
+        let java_base_methods: Vec<_> = endpoints
+            .iter()
+            .filter(|e| e.file_path.contains("BaseController.java"))
+            .map(|e| &e.method_name)
+            .collect();
+
+        let kotlin_child_methods: Vec<_> = endpoints
             .iter()
             .filter(|e| e.file_path.contains("ChildController.kt"))
             .map(|e| &e.method_name)
             .collect();
 
-        // 各ファイルで5つのメソッドが検出されるべき
+        let kotlin_base_methods: Vec<_> = endpoints
+            .iter()
+            .filter(|e| e.file_path.contains("BaseController.kt"))
+            .map(|e| &e.method_name)
+            .collect();
+
+        // 子クラスファイルで2つのメソッドが検出されるべき
         assert_eq!(
-            java_methods.len(),
-            5,
-            "Javaファイルで5つのメソッドが検出されるべき"
+            java_child_methods.len(),
+            2,
+            "Java子クラスファイルで2つのメソッドが検出されるべき"
         );
         assert_eq!(
-            kotlin_methods.len(),
-            5,
-            "Kotlinファイルで5つのメソッドが検出されるべき"
+            kotlin_child_methods.len(),
+            2,
+            "Kotlin子クラスファイルで2つのメソッドが検出されるべき"
+        );
+
+        // 親クラスファイルで3つのメソッドが検出されるべき
+        assert_eq!(
+            java_base_methods.len(),
+            3,
+            "Java親クラスファイルで3つのメソッドが検出されるべき"
+        );
+        assert_eq!(
+            kotlin_base_methods.len(),
+            3,
+            "Kotlin親クラスファイルで3つのメソッドが検出されるべき"
         );
 
         // メソッド名の重複がないことを確認
-        let mut java_unique_methods = java_methods.clone();
-        java_unique_methods.sort();
-        java_unique_methods.dedup();
+        let mut java_child_unique_methods = java_child_methods.clone();
+        java_child_unique_methods.sort();
+        java_child_unique_methods.dedup();
         assert_eq!(
-            java_methods.len(),
-            java_unique_methods.len(),
-            "Javaメソッドに重複があります"
+            java_child_methods.len(),
+            java_child_unique_methods.len(),
+            "Java子クラスメソッドに重複があります"
         );
 
-        let mut kotlin_unique_methods = kotlin_methods.clone();
-        kotlin_unique_methods.sort();
-        kotlin_unique_methods.dedup();
+        let mut java_base_unique_methods = java_base_methods.clone();
+        java_base_unique_methods.sort();
+        java_base_unique_methods.dedup();
         assert_eq!(
-            kotlin_methods.len(),
-            kotlin_unique_methods.len(),
-            "Kotlinメソッドに重複があります"
+            java_base_methods.len(),
+            java_base_unique_methods.len(),
+            "Java親クラスメソッドに重複があります"
+        );
+
+        let mut kotlin_child_unique_methods = kotlin_child_methods.clone();
+        kotlin_child_unique_methods.sort();
+        kotlin_child_unique_methods.dedup();
+        assert_eq!(
+            kotlin_child_methods.len(),
+            kotlin_child_unique_methods.len(),
+            "Kotlin子クラスメソッドに重複があります"
+        );
+
+        let mut kotlin_base_unique_methods = kotlin_base_methods.clone();
+        kotlin_base_unique_methods.sort();
+        kotlin_base_unique_methods.dedup();
+        assert_eq!(
+            kotlin_base_methods.len(),
+            kotlin_base_unique_methods.len(),
+            "Kotlin親クラスメソッドに重複があります"
         );
 
         Ok(())
