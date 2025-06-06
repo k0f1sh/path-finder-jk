@@ -450,9 +450,9 @@ fn extract_inheritance_info(source_code: &str, class_node: tree_sitter::Node) ->
     None
 }
 
-// 親クラスファイルを探索する関数（Kotlin用）
-fn find_parent_class_file(scan_root_dir: &str, parent_class_name: &str) -> Option<String> {
-    let target_filename = format!("{}.kt", parent_class_name);
+// クラス名とファイルパスのキャッシュを構築する関数
+fn build_class_file_cache(scan_root_dir: &str) -> Result<std::collections::HashMap<String, String>> {
+    let mut class_file_map = std::collections::HashMap::new();
 
     for entry in WalkDir::new(scan_root_dir)
         .follow_links(true)
