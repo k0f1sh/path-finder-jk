@@ -104,7 +104,7 @@ fn test_scan_directory_with_warnings() {
     let wrong_endpoints: Vec<_> = endpoints.iter()
         .filter(|e| e.path.starts_with("/api/wrong"))
         .collect();
-    assert_eq!(wrong_endpoints.len(), 1);
+    assert_eq!(wrong_endpoints.len(), 3); // 子クラス1個 + 継承されたメソッド2個
 }
 
 #[test]
