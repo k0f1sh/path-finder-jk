@@ -5,6 +5,34 @@ use walkdir::WalkDir;
 
 use crate::{Endpoint, Parameter};
 
+// 警告を出さない親クラス名のリスト
+fn should_warn_about_missing_parent(parent_class_name: &str) -> bool {
+    !matches!(parent_class_name, 
+        // Java標準クラス
+        "Object" | "Exception" | "RuntimeException" | "Throwable" |
+        "Enum" | "Record" | "Number" | "String" |
+        
+        // Spring Boot / Spring Framework標準クラス
+        "BaseEntity" | "AbstractEntity" | "AbstractAggregateRoot" |
+        "JpaRepository" | "CrudRepository" | "Repository" | "PagingAndSortingRepository" |
+        "Controller" | "RestController" | "Component" | "Service" |
+        "Configuration" | "ConfigurationProperties" |
+        
+        // JPA / Hibernate標準クラス
+        "EntityListener" | "AbstractEntityListener" | "Auditable" |
+        "Persistable" | "AbstractAuditable" | "AbstractPersistable" |
+        
+        // 一般的なライブラリクラス
+        "ResponseEntity" | "HttpEntity" | "RequestEntity" |
+        "Page" | "Pageable" | "Sort" | "Slice" |
+        
+        // よくあるベースクラス名
+        "BaseController" | "AbstractController" | "BaseService" | "AbstractService" |
+        "BaseRepository" | "AbstractRepository" | "BaseDomain" | "AbstractDomain" |
+        "BaseDto" | "AbstractDto"
+    )
+}
+
 // 継承処理用の構造体
 #[derive(Debug)]
 struct InheritanceTask {
@@ -489,22 +517,27 @@ fn extract_inheritance_info(source_code: &str, class_node: tree_sitter::Node) ->
     None
 }
 
-// 親クラスファイルを探索する関数
+// 親クラスファイルを探索する関数（Java/Kotlin両方対応）
 fn find_parent_class_file(scan_root_dir: &str, parent_class_name: &str) -> Option<String> {
-    let target_filename = format!("{}.java", parent_class_name);
+    // 複数の拡張子を試す（Java -> Kotlin継承も考慮）
+    let target_extensions = [".java", ".kt"];
+    
+    for extension in &target_extensions {
+        let target_filename = format!("{}{}", parent_class_name, extension);
 
-    for entry in WalkDir::new(scan_root_dir)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if entry.file_type().is_file() {
-            if let Some(filename) = entry.path().file_name() {
-                if filename == target_filename.as_str() {
-                    // ファイル名が一致した場合、クラス名も確認
-                    let file_path = entry.path().to_string_lossy().to_string();
-                    if verify_class_name_in_file(&file_path, parent_class_name).unwrap_or(false) {
-                        return Some(file_path);
+        for entry in WalkDir::new(scan_root_dir)
+            .follow_links(true)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            if entry.file_type().is_file() {
+                if let Some(filename) = entry.path().file_name() {
+                    if filename == target_filename.as_str() {
+                        // ファイル名が一致した場合、クラス名も確認
+                        let file_path = entry.path().to_string_lossy().to_string();
+                        if verify_class_name_in_file(&file_path, parent_class_name).unwrap_or(false) {
+                            return Some(file_path);
+                        }
                     }
                 }
             }
@@ -514,8 +547,53 @@ fn find_parent_class_file(scan_root_dir: &str, parent_class_name: &str) -> Optio
     None
 }
 
-// ファイル内に指定されたクラス名があるかを確認する関数
+// ファイル内に指定されたクラス名があるかを確認する関数（Java/Kotlin両方対応）
 fn verify_class_name_in_file(file_path: &str, expected_class_name: &str) -> Result<bool> {
+    let source_code = fs::read_to_string(file_path)
+        .with_context(|| format!("ファイルの読み込みに失敗しました: {}", file_path))?;
+
+    // ファイル拡張子によってパーサーを選択
+    if file_path.ends_with(".java") {
+        // Javaファイルの場合
+        let mut parser = create_parser();
+        let tree = parser
+            .parse(&source_code, None)
+            .expect("パースに失敗しました");
+
+        let query_source = r#"
+            (class_declaration
+                name: (identifier) @class_name)
+        "#;
+
+        let query = create_query(query_source);
+        let mut query_cursor = QueryCursor::new();
+        let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
+
+        while let Some(m) = matches.next() {
+            for capture in m.captures {
+                let capture_name = &query.capture_names()[capture.index as usize];
+                if capture_name == &"class_name" {
+                    let class_name = &source_code[capture.node.byte_range()];
+                    if class_name == expected_class_name {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+    } else if file_path.ends_with(".kt") {
+        // Kotlinファイルの場合は、kotlinモジュールの関数を使用
+        return crate::kotlin::verify_class_name_in_kotlin_file(file_path, expected_class_name);
+    }
+
+    Ok(false)
+}
+
+// Kotlinモジュールから呼び出すための公開関数
+pub fn verify_class_name_in_java_file(file_path: &str, expected_class_name: &str) -> Result<bool> {
+    if !file_path.ends_with(".java") {
+        return Ok(false);
+    }
+    
     let source_code = fs::read_to_string(file_path)
         .with_context(|| format!("ファイルの読み込みに失敗しました: {}", file_path))?;
 
@@ -546,6 +624,70 @@ fn verify_class_name_in_file(file_path: &str, expected_class_name: &str) -> Resu
     }
 
     Ok(false)
+}
+
+// Kotlinモジュールから呼び出すための公開関数（Javaファイルの親クラスメソッド抽出）
+pub fn extract_parent_methods_for_inheritance_from_kotlin(
+    parent_file_path: &str,
+    child_base_path: Option<&str>,
+    parent_class_name: &str,
+) -> Result<Vec<Endpoint>> {
+    let source_code = fs::read_to_string(parent_file_path).with_context(|| {
+        format!(
+            "親クラスファイルの読み込みに失敗しました: {}",
+            parent_file_path
+        )
+    })?;
+
+    let mut parser = create_parser();
+    let tree = parser
+        .parse(&source_code, None)
+        .expect("親クラスのパースに失敗しました");
+
+    // 親クラスを見つける
+    let query_source = r#"
+        (class_declaration
+            name: (identifier) @class_name) @class
+    "#;
+
+    let query = create_query(query_source);
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, tree.root_node(), source_code.as_bytes());
+
+    let mut endpoints = Vec::new();
+
+    while let Some(m) = matches.next() {
+        let mut found_target_class = false;
+        let mut class_node = None;
+
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            let node_text = &source_code[capture.node.byte_range()];
+
+            if capture_name == &"class_name" && node_text == parent_class_name {
+                found_target_class = true;
+            } else if capture_name == &"class" {
+                class_node = Some(capture.node);
+            }
+        }
+
+        if found_target_class {
+            if let Some(class_node) = class_node {
+                // 親クラスのメソッドを抽出（親クラス名と親ファイルパスを正しく使用）
+                let parent_endpoints = extract_method_mappings_with_endpoints(
+                    &source_code,
+                    class_node,
+                    child_base_path,     // 子クラスのbase_pathを使用
+                    parent_class_name,   // 親クラス名を使用
+                    parent_file_path,    // 親クラスのファイルパスを使用
+                );
+                endpoints.extend(parent_endpoints);
+                break;
+            }
+        }
+    }
+
+    Ok(endpoints)
 }
 
 // 親クラスのメソッドを継承用に抽出する関数
@@ -744,10 +886,13 @@ fn process_inheritance_queue(
                 }
             }
         } else {
-            eprintln!(
-                "Warning: Parent class {} not found for {}",
-                task.parent_class_name, task.child_class_name
-            );
+            // Spring標準クラスや一般的なJavaクラスの場合は警告を出さない
+            if should_warn_about_missing_parent(&task.parent_class_name) {
+                eprintln!(
+                    "Warning: Parent class {} not found for {}",
+                    task.parent_class_name, task.child_class_name
+                );
+            }
         }
     }
 
