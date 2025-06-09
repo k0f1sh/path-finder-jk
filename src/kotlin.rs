@@ -7,7 +7,8 @@ use crate::{Endpoint, Parameter};
 
 // 警告を出さない親クラス名のリスト
 fn should_warn_about_missing_parent(parent_class_name: &str) -> bool {
-    !matches!(parent_class_name, 
+    !matches!(
+        parent_class_name,
         // Java標準クラス
         "Object" | "Exception" | "RuntimeException" | "Throwable" |
         "Enum" | "Record" | "Number" | "String" |
@@ -483,7 +484,7 @@ fn extract_inheritance_info(source_code: &str, class_node: tree_sitter::Node) ->
 fn find_parent_class_file(scan_root_dir: &str, parent_class_name: &str) -> Option<String> {
     // 複数の拡張子を試す（Kotlin -> Java継承も考慮）
     let target_extensions = [".kt", ".java"];
-    
+
     for extension in &target_extensions {
         let target_filename = format!("{}{}", parent_class_name, extension);
 
@@ -497,7 +498,8 @@ fn find_parent_class_file(scan_root_dir: &str, parent_class_name: &str) -> Optio
                     if filename == target_filename.as_str() {
                         // ファイル名が一致した場合、クラス名も確認
                         let file_path = entry.path().to_string_lossy().to_string();
-                        if verify_class_name_in_file(&file_path, parent_class_name).unwrap_or(false) {
+                        if verify_class_name_in_file(&file_path, parent_class_name).unwrap_or(false)
+                        {
                             return Some(file_path);
                         }
                     }
@@ -551,11 +553,14 @@ fn verify_class_name_in_file(file_path: &str, expected_class_name: &str) -> Resu
 }
 
 // Javaモジュールから呼び出すための公開関数
-pub fn verify_class_name_in_kotlin_file(file_path: &str, expected_class_name: &str) -> Result<bool> {
+pub fn verify_class_name_in_kotlin_file(
+    file_path: &str,
+    expected_class_name: &str,
+) -> Result<bool> {
     if !file_path.ends_with(".kt") {
         return Ok(false);
     }
-    
+
     let source_code = fs::read_to_string(file_path)
         .with_context(|| format!("ファイルの読み込みに失敗しました: {}", file_path))?;
 
@@ -602,7 +607,7 @@ fn extract_parent_methods_for_inheritance(
             &task.parent_class_name,
         );
     }
-    
+
     // Kotlinファイルの場合は従来通りの処理
     let source_code = fs::read_to_string(parent_file_path).with_context(|| {
         format!(
