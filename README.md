@@ -55,6 +55,72 @@ JSON出力例：
 ]
 ```
 
+## 機能
+
+### 基本機能
+- Java/Kotlinファイルの構文解析（tree-sitter使用）
+- Spring Framework の RequestMapping アノテーション解析
+- エンドポイント情報の抽出（HTTP メソッド、パス、パラメータ）
+- JSON/テキスト形式での出力
+
+### 継承対応
+本ツールは、Spring Controller クラスの継承関係を完全にサポートしています。
+
+#### 単一継承
+```java
+// 親クラス（@RequestMapping なし）
+public class BaseController {
+    @GetMapping("/health")
+    public String health() { return "OK"; }
+}
+
+// 子クラス（@RequestMapping あり）
+@RestController
+@RequestMapping("/api/users")
+public class UserController extends BaseController {
+    @PostMapping("/create")
+    public String create() { return "Created"; }
+}
+```
+
+**検出結果:**
+- `POST /api/users/create` (UserController#create)
+- `GET /api/users/health` (BaseController#health) ← 継承されたメソッド
+
+#### 多重継承チェーン
+```java
+// 祖父クラス
+public class GrandParentController {
+    @GetMapping("/legacy")
+    public String legacy() { return "Legacy"; }
+}
+
+// 親クラス
+public class BaseController extends GrandParentController {
+    @GetMapping("/health")
+    public String health() { return "OK"; }
+}
+
+// 子クラス
+@RestController
+@RequestMapping("/api/users")
+public class UserController extends BaseController {
+    @PostMapping("/create")
+    public String create() { return "Created"; }
+}
+```
+
+**検出結果:**
+- `POST /api/users/create` (UserController#create)
+- `GET /api/users/health` (BaseController#health)
+- `GET /api/users/legacy` (GrandParentController#legacy) ← 多重継承で検出
+
+#### 技術的詳細
+- **キューベースの継承処理**: 継承チェーンを再帰的に辿り、すべての祖先クラスのメソッドを検出
+- **無限ループ防止**: 処理済みクラスを記録し、循環継承を安全に処理
+- **パス結合**: 子クラスの `@RequestMapping` パスと親クラスのメソッドパスを適切に結合
+- **Java/Kotlin両対応**: 両言語で同等の継承処理を実装
+
 ## TODO
 
 - [x] Javaファイルのパース
@@ -63,4 +129,8 @@ JSON出力例：
 - [x] Kotlinファイルのサポート
   - [x] Kotlinパーサーの追加
   - [x] Spring FrameworkアノテーションのKotlin構文対応
+- [x] 継承対応
+  - [x] 単一継承のサポート
+  - [x] 多重継承チェーンのサポート
+  - [x] 無限ループ防止機能
   - [ ] GetMappingなどでvalueが指定されているパターンの対応
