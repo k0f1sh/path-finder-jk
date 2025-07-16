@@ -1,6 +1,5 @@
 use anyhow::Result;
 use serde::Serialize;
-use serde_json;
 use walkdir::WalkDir;
 
 pub mod java;
@@ -67,18 +66,16 @@ fn scan_directory_internal(dir_path: &str, json_output: bool) -> Result<ScanResu
     {
         if entry.file_type().is_file() {
             let file_path = entry.path().to_string_lossy().to_string();
-            if entry.path().extension().map_or(false, |ext| ext == "java") {
+            if entry.path().extension().is_some_and(|ext| ext == "java") {
                 if java::has_request_mapping(&file_path)? {
                     let endpoints =
                         java::extract_request_mapping_with_inheritance(&file_path, dir_path)?;
                     all_endpoints.extend(endpoints);
                 }
-            } else if entry.path().extension().map_or(false, |ext| ext == "kt") {
-                if kotlin::has_request_mapping(&file_path)? {
-                    let endpoints =
-                        kotlin::extract_request_mapping_with_inheritance(&file_path, dir_path)?;
-                    all_endpoints.extend(endpoints);
-                }
+            } else if entry.path().extension().is_some_and(|ext| ext == "kt") && kotlin::has_request_mapping(&file_path)? {
+                let endpoints =
+                    kotlin::extract_request_mapping_with_inheritance(&file_path, dir_path)?;
+                all_endpoints.extend(endpoints);
             }
         }
     }

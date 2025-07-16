@@ -132,7 +132,7 @@ fn extract_request_mapping_with_endpoints(
 
         // Get the class node to extract the full class definition
         for capture in m.captures {
-            if &query.capture_names()[capture.index as usize] == &"class" {
+            if query.capture_names()[capture.index as usize] == "class" {
                 let class_node = capture.node;
                 // Extract the path from the annotation if available
                 let base_path = extract_request_mapping_path(&source_code, class_node);
@@ -255,11 +255,11 @@ fn extract_method_mappings_with_endpoints(
             let capture_name = &query.capture_names()[capture.index as usize];
             let node_text = &source_code[capture.node.byte_range()];
 
-            match capture_name {
-                &"method_name" => method_name = node_text,
-                &"mapping_type" => mapping_type = node_text,
-                &"path" => path = node_text,
-                &"method" => method_node = Some(capture.node),
+            match *capture_name {
+                "method_name" => method_name = node_text,
+                "mapping_type" => mapping_type = node_text,
+                "path" => path = node_text,
+                "method" => method_node = Some(capture.node),
                 _ => {}
             }
         }
@@ -395,10 +395,10 @@ fn extract_method_parameters_with_data(
             let capture_name = &query.capture_names()[capture.index as usize];
             let node_text = &source_code[capture.node.byte_range()];
 
-            match capture_name {
-                &"param_name" => param_name = node_text,
-                &"param_type" => param_type = node_text,
-                &"param_annotation" => param_annotation = node_text,
+            match *capture_name {
+                "param_name" => param_name = node_text,
+                "param_type" => param_type = node_text,
+                "param_annotation" => param_annotation = node_text,
                 _ => {}
             }
         }
@@ -443,10 +443,7 @@ fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter:
             let capture_name = &query.capture_names()[capture.index as usize];
             let node_text = &source_code[capture.node.byte_range()];
 
-            match capture_name {
-                &"headers" => headers = node_text,
-                _ => {}
-            }
+            if capture_name == &"headers" { headers = node_text }
         }
     }
 
