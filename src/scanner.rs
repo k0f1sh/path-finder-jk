@@ -1,35 +1,11 @@
 use anyhow::Result;
-use serde::Serialize;
 use walkdir::WalkDir;
+use serde_json;
 
-pub mod java;
-pub mod kotlin;
+use crate::common::types::{Endpoint, ScanResult};
+use crate::parsers::{java, kotlin};
 
-// 新しいモジュール構造（将来使用予定）
-pub mod common;
-pub mod parsers;
-pub mod scanner;
-
-// エンドポイント情報を格納する構造体
-#[derive(Debug, Serialize)]
-pub struct Endpoint {
-    pub class_name: String,
-    pub method_name: String,
-    pub http_method: String,
-    pub path: String,
-    pub parameters: Vec<Parameter>,
-    pub line_range: (usize, usize),
-    pub file_path: String,
-    pub headers: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Parameter {
-    pub name: String,
-    pub param_type: String,
-    pub annotation: String,
-}
-
+/// ディレクトリ内のJavaとKotlinファイルをスキャンしてエンドポイントを抽出する
 pub fn scan_directory(dir_path: &str) -> Result<Vec<Endpoint>> {
     scan_directory_internal(dir_path, false).map(|result| match result {
         ScanResult::Endpoints(endpoints) => endpoints,
@@ -37,18 +13,7 @@ pub fn scan_directory(dir_path: &str) -> Result<Vec<Endpoint>> {
     })
 }
 
-/// Scans the directory for Java and Kotlin files with Spring RequestMapping annotations
-/// and returns the endpoints in JSON format.
-///
-/// This is useful for integrating with other tools or scripts that can parse JSON.
-///
-/// # Arguments
-///
-/// * `dir_path` - The path to the directory to scan
-///
-/// # Returns
-///
-/// A JSON string containing an array of endpoint objects
+/// ディレクトリ内のJavaとKotlinファイルをスキャンしてエンドポイントをJSON形式で返す
 pub fn scan_directory_json(dir_path: &str) -> Result<String> {
     scan_directory_internal(dir_path, true).map(|result| match result {
         ScanResult::Json(json) => json,
@@ -56,11 +21,7 @@ pub fn scan_directory_json(dir_path: &str) -> Result<String> {
     })
 }
 
-enum ScanResult {
-    Endpoints(Vec<Endpoint>),
-    Json(String),
-}
-
+/// 内部的なスキャン処理
 fn scan_directory_internal(dir_path: &str, json_output: bool) -> Result<ScanResult> {
     let mut all_endpoints = Vec::new();
 
@@ -71,6 +32,7 @@ fn scan_directory_internal(dir_path: &str, json_output: bool) -> Result<ScanResu
     {
         if entry.file_type().is_file() {
             let file_path = entry.path().to_string_lossy().to_string();
+            
             if entry.path().extension().is_some_and(|ext| ext == "java") {
                 if java::has_request_mapping(&file_path)? {
                     let endpoints =
