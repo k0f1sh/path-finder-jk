@@ -35,7 +35,9 @@ JSON出力例：
     "path": "/api/users",
     "parameters": [],
     "line_range": [24, 27],
-    "file_path": "src/main/java/com/example/UserController.java"
+    "file_path": "src/main/java/com/example/UserController.java",
+    "headers": "",
+    "params": ""
   },
   {
     "class_name": "UserController",
@@ -50,7 +52,20 @@ JSON出力例：
       }
     ],
     "line_range": [29, 32],
-    "file_path": "src/main/java/com/example/UserController.java"
+    "file_path": "src/main/java/com/example/UserController.java",
+    "headers": "",
+    "params": ""
+  },
+  {
+    "class_name": "UserController",
+    "method_name": "getUsersV1",
+    "http_method": "GET",
+    "path": "/api/users",
+    "parameters": [],
+    "line_range": [49, 52],
+    "file_path": "src/main/java/com/example/UserController.java",
+    "headers": "",
+    "params": "version=1"
   }
 ]
 ```
@@ -60,8 +75,11 @@ JSON出力例：
 ### 基本機能
 - Java/Kotlinファイルの構文解析（tree-sitter使用）
 - Spring Framework の RequestMapping アノテーション解析
-- エンドポイント情報の抽出（HTTP メソッド、パス、パラメータ）
+- エンドポイント情報の抽出（HTTP メソッド、パス、パラメータ、headers、params）
 - JSON/テキスト形式での出力
+- アノテーション属性の詳細抽出
+  - `headers`: リクエストヘッダー条件の抽出
+  - `params`: リクエストパラメータ条件の抽出
 
 ### 継承対応
 本ツールは、Spring Controller クラスの継承関係を完全にサポートしています。
@@ -120,6 +138,69 @@ public class UserController extends BaseController {
 - **無限ループ防止**: 処理済みクラスを記録し、循環継承を安全に処理
 - **パス結合**: 子クラスの `@RequestMapping` パスと親クラスのメソッドパスを適切に結合
 - **Java/Kotlin両対応**: 両言語で同等の継承処理を実装
+- **クロス言語継承**: JavaからKotlin、KotlinからJavaの継承関係もサポート
+
+### アノテーション属性サポート
+本ツールは、Spring Framework の様々なアノテーション属性を抽出できます。
+
+#### Headers 抽出
+```java
+@RequestMapping(method = RequestMethod.POST, value = "/{id}", headers = "X-Custom-Header")
+public ResponseEntity<?> createUser2(@RequestBody User user) {
+    return ResponseEntity.ok(userService.save(user));
+}
+```
+
+#### Params 抽出
+```java
+// 単一パラメータ条件
+@GetMapping(params = "version=1")
+public ResponseEntity<?> getUsersV1() {
+    return ResponseEntity.ok(userService.findAll());
+}
+
+// 複数パラメータ条件
+@RequestMapping(method = RequestMethod.GET, value = "/search", params = {"q", "type=advanced"})
+public ResponseEntity<?> searchUsers() {
+    return ResponseEntity.ok(userService.findAll());
+}
+```
+
+**Kotlin対応:**
+```kotlin
+// 単一パラメータ条件
+@GetMapping(params = ["version=2"])
+fun getUsersV2(): ResponseEntity<*> {
+    return ResponseEntity.ok(userService.findAll())
+}
+
+// 複数パラメータ条件
+@RequestMapping(method = [RequestMethod.GET], value = ["/search"], params = ["q", "type=kotlin"])
+fun searchKotlinUsers(): ResponseEntity<*> {
+    return ResponseEntity.ok(userService.findAll())
+}
+```
+
+## 対応アノテーション
+
+### マッピングアノテーション
+- `@RequestMapping`
+- `@GetMapping`
+- `@PostMapping`
+- `@PutMapping`
+- `@DeleteMapping`
+- `@PatchMapping`
+
+### パラメータアノテーション
+- `@PathVariable`
+- `@RequestBody`
+- `@RequestParam`
+
+### 属性抽出
+- `value` / `path`: エンドポイントパス
+- `method`: HTTPメソッド
+- `headers`: リクエストヘッダー条件
+- `params`: リクエストパラメータ条件
 
 ## TODO
 
@@ -133,4 +214,8 @@ public class UserController extends BaseController {
   - [x] 単一継承のサポート
   - [x] 多重継承チェーンのサポート
   - [x] 無限ループ防止機能
-  - [ ] GetMappingなどでvalueが指定されているパターンの対応
+  - [x] クロス言語継承サポート（Java↔Kotlin）
+- [x] アノテーション属性サポート
+  - [x] headers属性の抽出
+  - [x] params属性の抽出
+  - [x] 複数パラメータ条件の対応
