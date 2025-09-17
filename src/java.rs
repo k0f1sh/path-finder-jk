@@ -261,6 +261,18 @@ fn extract_method_mappings_with_endpoints(
                             (#match? @key "value")
                             value: (string_literal) @path))))
             name: (identifier) @method_name) @method
+
+        (method_declaration
+            (modifiers
+                (annotation
+                    name: (identifier) @mapping_type
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping")
+                    arguments: (annotation_argument_list
+                        (element_value_pair
+                            key: (identifier) @key
+                            (#match? @key "params")
+                            value: (_)))))
+            name: (identifier) @method_name) @method
     "#;
 
     let query = create_query(query_source);
@@ -322,6 +334,9 @@ fn extract_method_mappings_with_endpoints(
             // headerを抽出
             let headers = extract_method_headers_with_data(source_code, node);
 
+            // paramsを抽出
+            let params = extract_method_params_with_data(source_code, node);
+
             // エンドポイントを作成
             let endpoint = Endpoint {
                 class_name: class_name.to_string(),
@@ -332,6 +347,7 @@ fn extract_method_mappings_with_endpoints(
                 line_range: (start_line, end_line),
                 file_path: file_path.to_string(),
                 headers,
+                params,
             };
 
             endpoints.push(endpoint);
@@ -487,6 +503,52 @@ fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter:
     }
 
     headers.to_string()
+}
+
+fn extract_method_params_with_data(source_code: &str, method_node: tree_sitter::Node) -> String {
+    // Create a query to find method parameters with annotations
+    let query_source = r#"
+        (method_declaration
+            (modifiers
+                (annotation
+                    name: (identifier) @mapping_type
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping")
+                    arguments: (annotation_argument_list
+                        (element_value_pair
+                            key: (identifier) @key
+                            (#match? @key "params")
+                            value: (_) @params))))
+            name: (identifier) @method_name)
+            
+        (method_declaration
+            (modifiers
+                (annotation
+                    name: (identifier) @mapping_type
+                    (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping")
+                    arguments: (annotation_argument_list
+                        (element_value_pair
+                            key: (identifier) @key
+                            (#match? @key "params")
+                            value: (string_literal) @params))))
+            name: (identifier) @method_name)
+    "#;
+
+    let query = create_query(query_source);
+
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
+
+    let mut params = "";
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            let node_text = &source_code[capture.node.byte_range()];
+
+            if capture_name == &"params" { params = node_text }
+        }
+    }
+
+    params.to_string()
 }
 
 // 継承情報を抽出する関数

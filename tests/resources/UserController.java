@@ -45,4 +45,14 @@ public class UserController {
     public ResponseEntity<?> createUser2(@RequestBody User user) {
         return ResponseEntity.ok(userService.save(user));
     }
+
+    @GetMapping(params = "version=1")
+    public ResponseEntity<?> getUsersV1() {
+        return ResponseEntity.ok(userService.findAll());
+    }
+
+    @RequestMapping(method = RequestMethod.GET, value = "/search", params = {"q", "type=advanced"})
+    public ResponseEntity<?> searchUsers() {
+        return ResponseEntity.ok(userService.findAll());
+    }
 } 

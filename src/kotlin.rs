@@ -236,6 +236,19 @@ fn extract_method_mappings_with_endpoints(
                     ))
                     )))
              (simple_identifier) @method_name) @method
+
+        (function_declaration
+            (modifiers
+                (annotation
+                  (constructor_invocation
+                    (user_type (type_identifier) @mapping_type
+                      (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping"))
+                    (value_arguments (value_argument (simple_identifier) @key
+                      (#match? @key "params")
+                      (collection_literal (_))
+                    ))
+                    )))
+             (simple_identifier) @method_name) @method
     "#;
 
     let query = create_query(query_source);
@@ -293,6 +306,7 @@ fn extract_method_mappings_with_endpoints(
 
             let parameters = extract_method_parameters_with_data(source_code, node);
             let headers = extract_method_headers_with_data(source_code, node);
+            let params = extract_method_params_with_data(source_code, node);
 
             endpoints.push(Endpoint {
                 class_name: class_name.to_string(),
@@ -303,6 +317,7 @@ fn extract_method_mappings_with_endpoints(
                 line_range: (start_line, end_line),
                 file_path: file_path.to_string(),
                 headers: headers.to_string(),
+                params: params.to_string(),
             });
         }
     }
@@ -448,6 +463,54 @@ fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter:
     }
 
     headers.to_string()
+}
+
+fn extract_method_params_with_data(source_code: &str, method_node: tree_sitter::Node) -> String {
+    // Create a query to find method parameters with annotations
+    let query_source = r#"
+        (function_declaration
+            (modifiers
+                (annotation
+                  (constructor_invocation
+                    (user_type (type_identifier) @mapping_type
+                      (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping"))
+                    (value_arguments (value_argument (simple_identifier) @key
+                      (#match? @key "params")
+                      (collection_literal (string_literal) @params)
+                    ))
+                    )))
+             (simple_identifier) @method_name) @method
+             
+        (function_declaration
+            (modifiers
+                (annotation
+                  (constructor_invocation
+                    (user_type (type_identifier) @mapping_type
+                      (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping"))
+                    (value_arguments (value_argument (simple_identifier) @key
+                      (#match? @key "params")
+                      (collection_literal (_) @params)
+                    ))
+                    )))
+             (simple_identifier) @method_name) @method
+    "#;
+
+    let query = create_query(query_source);
+
+    let mut query_cursor = QueryCursor::new();
+    let mut matches = query_cursor.matches(&query, method_node, source_code.as_bytes());
+
+    let mut params = "";
+    while let Some(m) = matches.next() {
+        for capture in m.captures {
+            let capture_name = &query.capture_names()[capture.index as usize];
+            let node_text = &source_code[capture.node.byte_range()];
+
+            if capture_name == &"params" { params = node_text }
+        }
+    }
+
+    params.to_string()
 }
 
 // 継承情報を抽出する関数（Kotlin用）

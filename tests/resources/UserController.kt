@@ -50,4 +50,14 @@ class UserController(private val userService: UserService) {
     fun updateNameId(@PathVariable id: Long, @RequestBody params: UpdateNameIdRequestParams): ResponseEntity<*> {
         return ResponseEntity.ok().build()
     }
+
+    @GetMapping(params = ["version=2"])
+    fun getUsersV2(): ResponseEntity<*> {
+        return ResponseEntity.ok(userService.findAll())
+    }
+
+    @RequestMapping(method = [RequestMethod.GET], value = ["/search"], params = ["q", "type=kotlin"])
+    fun searchKotlinUsers(): ResponseEntity<*> {
+        return ResponseEntity.ok(userService.findAll())
+    }
 }

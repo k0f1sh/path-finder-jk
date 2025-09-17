@@ -21,6 +21,7 @@ pub struct Endpoint {
     pub line_range: (usize, usize),
     pub file_path: String,
     pub headers: String,
+    pub params: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,7 +78,9 @@ fn scan_directory_internal(dir_path: &str, json_output: bool) -> Result<ScanResu
                         java::extract_request_mapping_with_inheritance(&file_path, dir_path)?;
                     all_endpoints.extend(endpoints);
                 }
-            } else if entry.path().extension().is_some_and(|ext| ext == "kt") && kotlin::has_request_mapping(&file_path)? {
+            } else if entry.path().extension().is_some_and(|ext| ext == "kt")
+                && kotlin::has_request_mapping(&file_path)?
+            {
                 let endpoints =
                     kotlin::extract_request_mapping_with_inheritance(&file_path, dir_path)?;
                 all_endpoints.extend(endpoints);
