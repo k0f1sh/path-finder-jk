@@ -439,20 +439,17 @@ fn extract_method_parameters_with_data(
 }
 
 fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter::Node) -> String {
-    // Create a query to find method parameters with annotations
+    // Create a more flexible query to find headers attribute regardless of order
     let query_source = r#"
-        (function_declaration
-            (modifiers
-                (annotation
-                  (constructor_invocation
-                    (user_type (type_identifier) @mapping_type
-                      (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping"))
-                    (value_arguments (value_argument (simple_identifier) @key
-                      (#match? @key "headers")
-                      (collection_literal (_) @headers)
-                    ))
-                    )))
-             (simple_identifier) @method_name) @method
+        (annotation
+          (constructor_invocation
+            (user_type (type_identifier) @mapping_type
+              (#match? @mapping_type "GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping"))
+            (value_arguments (value_argument (simple_identifier) @key
+              (#match? @key "headers")
+              (collection_literal (_) @headers)
+            ))
+            ))
     "#;
 
     let query = create_query(query_source);
@@ -466,7 +463,13 @@ fn extract_method_headers_with_data(source_code: &str, method_node: tree_sitter:
             let capture_name = &query.capture_names()[capture.index as usize];
             let node_text = &source_code[capture.node.byte_range()];
 
-            if capture_name == &"headers" { headers = node_text }
+            if capture_name == &"headers" { 
+                headers = node_text;
+                break; // 最初に見つかったheadersを使用
+            }
+        }
+        if !headers.is_empty() {
+            break; // headers が見つかったらループを抜ける
         }
     }
 
