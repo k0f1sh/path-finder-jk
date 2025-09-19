@@ -257,6 +257,7 @@ fn extract_method_mappings_with_endpoints(
     let mut matches = query_cursor.matches(&query, class_node, source_code.as_bytes());
 
     let mut endpoints = Vec::new();
+    let mut processed_methods = std::collections::HashSet::new();
 
     while let Some(m) = matches.next() {
         let mut method_name = "";
@@ -280,6 +281,13 @@ fn extract_method_mappings_with_endpoints(
         if let Some(node) = method_node {
             let start_line = node.start_position().row + 1;
             let end_line = node.end_position().row + 1;
+            
+            // 重複チェック: 同じメソッド（行番号で判定）が既に処理済みかチェック
+            let method_key = format!("{}:{}", method_name, start_line);
+            if processed_methods.contains(&method_key) {
+                continue;
+            }
+            processed_methods.insert(method_key);
 
             // RequestMappingの場合はmethod属性を調べる
             let http_method = if mapping_type == "RequestMapping" {
