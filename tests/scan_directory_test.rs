@@ -16,8 +16,8 @@ mod tests {
             println!("{:?}", endpoint);
         }
 
-        // 期待されるエンドポイントの数を16に修正（params付きメソッドを4つ追加）
-        assert_eq!(endpoints.len(), 16, "エンドポイントの数が一致しません");
+        // 期待されるエンドポイントの数を22に修正（EmptyMappingControllerで6つ追加）
+        assert_eq!(endpoints.len(), 22, "エンドポイントの数が一致しません");
 
         // エンドポイントの内容を検証
         let expected_endpoints = vec![

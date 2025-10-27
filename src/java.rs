@@ -288,6 +288,7 @@ fn extract_method_mappings_with_endpoints(
         let mut mapping_type = "";
         let mut path = "";
         let mut method_node = None;
+        let mut has_explicit_path = false;
 
         for capture in m.captures {
             let capture_name = &query.capture_names()[capture.index as usize];
@@ -296,7 +297,10 @@ fn extract_method_mappings_with_endpoints(
             match *capture_name {
                 "method_name" => method_name = node_text,
                 "mapping_type" => mapping_type = node_text,
-                "path" => path = node_text,
+                "path" => {
+                    path = node_text;
+                    has_explicit_path = true;
+                },
                 "method" => method_node = Some(capture.node),
                 _ => {}
             }
@@ -321,7 +325,8 @@ fn extract_method_mappings_with_endpoints(
                 mapping_type_to_http_method(mapping_type)
             };
 
-            let full_path = if !path.is_empty() {
+            let full_path = if has_explicit_path {
+                // パスが明示的に指定されている場合（空文字列も含む）
                 match base_path {
                     Some(base) => {
                         let base = base.trim_matches('"');
@@ -331,6 +336,7 @@ fn extract_method_mappings_with_endpoints(
                     None => path.to_string(),
                 }
             } else if let Some(base) = base_path {
+                // パスが指定されていない場合、ベースパスのみを使用
                 base.to_string()
             } else {
                 "".to_string()
